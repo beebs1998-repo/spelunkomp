@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A ship firing up into a spread of enemy shots, inside the adaptive icon's safe circle (the middle 66 of 108) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#E8434B" android:pathData="M54,30 m-3.5,0 a3.5,3.5 0 1 0 7,0 a3.5,3.5 0 1 0 -7,0" />
+    <path android:fillColor="#E8434B" android:pathData="M42,34 m-3.5,0 a3.5,3.5 0 1 0 7,0 a3.5,3.5 0 1 0 -7,0" />
+    <path android:fillColor="#E8434B" android:pathData="M66,34 m-3.5,0 a3.5,3.5 0 1 0 7,0 a3.5,3.5 0 1 0 -7,0" />
+    <path android:fillColor="#F2B233" android:pathData="M33,43 m-3,0 a3,3 0 1 0 6,0 a3,3 0 1 0 -6,0" />
+    <path android:fillColor="#F2B233" android:pathData="M75,43 m-3,0 a3,3 0 1 0 6,0 a3,3 0 1 0 -6,0" />
+    <path android:fillColor="#4FA3F7" android:pathData="M52.5,40 h3 v12 h-3 z" />
+    <path android:fillColor="#C9CCD8" android:pathData="M54,56 L64,78 L54,73 L44,78 Z" />
+    <path android:fillColor="#5BD18B" android:pathData="M54,64 m-2.5,0 a2.5,2.5 0 1 0 5,0 a2.5,2.5 0 1 0 -5,0" />
+</vector>

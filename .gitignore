@@ -1,0 +1,17 @@
+# Builds and generated files (from the player's game files: never committed)
+build/
+build-*/
+work/
+rom
+rom/
+*.zip
+*.7z
+*.bin
+*.state
+*.png
+!docs/screenshots/*.png
+!recomp-common/launcher/flags.png
+.DS_Store
+.claude/
+tools/m68k/__pycache__/
+tools/boardvideo/__pycache__/

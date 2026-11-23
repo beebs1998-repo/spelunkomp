@@ -1,0 +1,2 @@
+# The checks' play: a coin, start, through the selects (the mode, the ship) with the shot, then the shot held and the stick moved
+--system 3100:6:4 --system 3200:6:0x10 --press 3400:6:0x10 --press 3500:6:0x10 --press 3600:6:0x10 --press 3700:6:0x10 --press 3800:3200:0x10 --press 4500:200:1 --press 5000:200:4 --press 5400:150:8 --press 5800:100:2

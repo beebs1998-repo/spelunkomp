@@ -1,0 +1,2 @@
+# The checks' play: a coin, start, the choices made, then the shot held and the stick moved
+--system 2500:6:4 --system 2600:6:0x10 --press 2800:6:0x10 --press 2900:6:0x10 --press 3000:6:0x10 --press 3100:3900:0x10 --press 3400:120:4 --press 3600:120:8 --press 4000:200:1 --press 4500:150:2 --press 5000:200:0x20

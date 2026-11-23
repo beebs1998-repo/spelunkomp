@@ -1,0 +1,97 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 Tommy McLeroy. Part of spelunkomp.
+// Espgaluda II: the game's own features (free play and the training features, from its facts: runtime/shmup.h).
+#include <algorithm>
+
+#include "../../../runtime/shmup.h"
+#include "espgal2.h"
+
+namespace spelunk {
+
+namespace {
+    uint32_t Long(const Board &board, uint32_t address) {
+        const uint8_t *p = &board.ram[address & (SH3::kRamSize - 1)];
+        return static_cast<uint32_t>(p[0]) << 24 | static_cast<uint32_t>(p[1]) << 16 | static_cast<uint32_t>(p[2]) << 8 | p[3];
+    }
+    int Word(const Board &board, uint32_t address) {
+        const uint8_t *p = &board.ram[address & (SH3::kRamSize - 1)];
+        return static_cast<int16_t>(p[0] << 8 | p[1]);
+    }
+    // Each member of a kind's groups that the game tests (the group's word at +8, the member's at +8 and +10)
+    template <typename Fn>
+    void Members(const Board &board, uint32_t kind, bool needTen, Fn &&fn) {
+        int guard = 0;
+        for (uint32_t group = Long(board, kind + 4); group && guard < 4096; group = Long(board, group)) {
+            if (!Word(board, group + 8)) {
+                continue;
+            }
+            for (uint32_t member = Long(board, group + 20); member && guard < 4096; member = Long(board, member), guard++) {
+                if (Word(board, member + 8) && (!needTen || Word(board, member + 10))) {
+                    fn(member);
+                }
+            }
+        }
+    }
+    // A member's box as the board's pixels (the board's across is the game's up, its down the game's across)
+    void Box(const Board &board, uint32_t member, HitBox::Kind kind, std::vector<HitBox> &out) {
+        int x = Word(board, member + 28), y = Word(board, member + 32);
+        if (const uint32_t owner = Long(board, member + 36)) {
+            x += Word(board, owner);
+            y += Word(board, owner + 4);
+        }
+        out.push_back({static_cast<float>(y - Word(board, member + 24)), static_cast<float>(x - Word(board, member + 20)),
+                       static_cast<float>(y + Word(board, member + 22) + 1), static_cast<float>(x + Word(board, member + 18) + 1), kind});
+    }
+    void HitBoxes(const Board &board, std::vector<HitBox> &out) {
+        using namespace espgal2;
+        // (the owners of the boxes that hit the ship: their enemies' hurt boxes are not drawn again)
+        std::vector<uint32_t> bodies;
+        Members(board, kBodyKind, true, [&](uint32_t m) {
+            Box(board, m, HitBox::Body, out);
+            bodies.push_back(Long(board, m + 36));
+        });
+        for (int kind : kHurtKinds) {
+            Members(board, kEnemyKinds + 12 * kind, true, [&](uint32_t m) {
+                const uint32_t owner = Long(board, m + 36);
+                if (!owner || std::find(bodies.begin(), bodies.end(), owner) == bodies.end()) {
+                    Box(board, m, HitBox::Ground, out);
+                }
+            });
+        }
+        for (int kind : kShotKinds) {
+            Members(board, kEnemyKinds + 12 * kind, false, [&](uint32_t m) { Box(board, m, HitBox::Shot, out); });
+        }
+        for (int kind : kShotKindsTen) {
+            Members(board, kEnemyKinds + 12 * kind, true, [&](uint32_t m) { Box(board, m, HitBox::Shot, out); });
+        }
+        Members(board, kBulletKind, true, [&](uint32_t m) {
+            if (const uint32_t owner = Long(board, m + 36)) {
+                const float x = static_cast<float>(Word(board, owner)), y = static_cast<float>(Word(board, owner + 4));
+                out.push_back({y, x, y + 1, x + 1, HitBox::Bullet});
+            }
+        });
+        Members(board, kShipKind, false, [&](uint32_t m) { Box(board, m, HitBox::Ship, out); });
+    }
+} // namespace
+
+const Game &ThisGame() {
+    static const Game game = [] {
+        shmup::Facts f;
+        f.stages = {"Stage 1", "Stage 2", "Stage 3", "Stage 4", "Stage 5", "Stage 6"};
+        f.stageArguments = {{espgal2::kNewGame, 4, espgal2::kNewGameCaller}, {espgal2::kBeginStage, 5}};
+        f.ships = espgal2::kShips;
+        f.gauges = {{espgal2::kBarrier, espgal2::kBarrierFull}, {espgal2::kBarrier + 4, espgal2::kBarrierFull}};
+        f.bombsTitle = "Barrier never runs out";
+        f.bombsWords = "The guard barrier's gauge is kept full.";
+        f.safeFrames = espgal2::kSafeFrames;
+        f.bossTunes.assign(std::begin(espgal2::kBossTunes), std::end(espgal2::kBossTunes));
+        f.shipState = espgal2::kShipState;
+        f.hitBoxes = HitBoxes;
+        f.hitKinds |= 1u << HitBox::Ground | 1u << HitBox::Shot;
+        f.safeFramesHeld = 0xDA;
+        return shmup::MakeGame(espgal2::kCredits, f);
+    }();
+    return game;
+}
+
+} // namespace spelunk

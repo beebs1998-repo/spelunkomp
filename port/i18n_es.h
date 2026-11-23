@@ -1,0 +1,32 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (C) 2026 Tommy McLeroy. Part of spelunkomp.
+//
+// The port's words in Spanish (port/i18n.h): each English text, then what it is in Spanish. A text left out
+// stays in English. The shader's are cps2recomp's, word for word, so the ports' menus match.
+#pragma once
+
+#include "../recomp-common/i18n.h"
+
+namespace port {
+
+inline constexpr recomp::i18n::Entry kSpanish[] = {
+    {"The picture drawn through one of RetroArch's shaders. CRT: a curved arcade monitor. CRT Lottes and CRT Guest: flat monitors, sharp and bright. CRT Royale: the closest to a real monitor's glass and the slowest. CRT Light: lines and a faint mask, for a slow computer. Scanlines: the lines alone, light, strong, as an OSSC draws them, or dark (a black line between each two, best with Whole pixels). xBRZ and ScaleFX: the pixels' edges made smooth lines and curves. Your own: the first .slangp preset in the shaders folder beside the game's settings. The launcher chooses which of these the menu goes through. The picture's shape and size stay as set; the shader draws its pixels in place of Scaling.", "La imagen dibujada con uno de los shaders de RetroArch. CRT: un monitor arcade curvo. CRT Lottes y CRT Guest: monitores planos, nítidos y brillantes. CRT Royale: lo más parecido al cristal de un monitor real, y el más lento. CRT Light: líneas y una máscara tenue, para una computadora lenta. Scanlines: solo las líneas, suaves, fuertes, como las dibuja un OSSC, u oscuras (una línea negra cada dos, mejor con Píxeles enteros). xBRZ y ScaleFX: los bordes de los píxeles convertidos en líneas y curvas suaves. El tuyo: el primer preset .slangp de la carpeta shaders junto a los ajustes del juego. El lanzador elige cuál de estos usa el menú. La forma y el tamaño de la imagen quedan como estén; el shader dibuja sus píxeles en lugar del Escalado."},
+    {"Your own", "El tuyo"},
+    {"Scanline direction", "Dirección de las líneas"},
+    {"Which way a shader's lines run in a game made for a monitor on its side. Vertical: as on the cabinet, whose monitor was turned on its side, so its lines run up and down the picture (the shader draws the board's picture as it sends it, and that is then stood up). Horizontal: the picture stood up first and then shaded, so the lines run across the screen. A game made for an upright monitor (Akai Katana, Deathsmiles) is the same either way.", "Hacia dónde corren las líneas de un shader en un juego hecho para un monitor de lado. Vertical: como en el arcade, cuyo monitor estaba girado de lado, así que sus líneas corren de arriba abajo por la imagen (el shader dibuja la imagen de la placa tal como la envía, y luego se pone de pie). Horizontal: la imagen se pone de pie primero y luego pasa por el shader, así que las líneas cruzan la pantalla. Un juego hecho para un monitor normal (Akai Katana, Deathsmiles) queda igual de las dos formas."},
+    {"Every option is back as it first was.", "Todas las opciones volvieron a como estaban al principio."},
+    {"Training mode's tools for practising a stage, a boss or a pattern, Dodge training: the game's own enemy fire, a pattern at a time, and attract mode.", "Las herramientas del modo de entrenamiento para practicar una fase, un jefe o un patrón, el entrenamiento de esquiva: el fuego enemigo del propio juego, un patrón cada vez, y el modo atracción."},
+    {"Training mode's tools for practising a stage, a boss or a pattern: a practice point, rewind, a start at any stage or its boss, a ship nothing can hit, hit boxes; and attract mode.", "Las herramientas del modo de entrenamiento para practicar una fase, un jefe o un patrón: un punto de práctica, rebobinar, empezar en cualquier fase o en su jefe, una nave a la que nada puede dar, cajas de impacto; y el modo atracción."},
+    {"Attract mode", "Modo atracción"},
+    {"Starts attract mode: the game's own show, over and over. Start (or a coin) ends it.", "Inicia el modo atracción: la demostración del propio juego, una y otra vez. Start (o una moneda) lo termina."},
+    {"The game's own show on a loop, with no coin in: the logos, the title, the demonstrations of play and the rankings.", "La demostración del propio juego en bucle, sin moneda: los logos, el título, las demostraciones de juego y la clasificación."},
+    {"Frame advance", "Avance por cuadros"},
+    {"Stops the game, for studying it a frame at a time: then O, Tab or a gamepad's right trigger goes on by one frame (held: frame after frame), and the frame's number is at the bottom of the picture. P, or this row again, starts it again. The game runs exactly the frames it would; the Speed row above slows it instead.", "Detiene el juego, para estudiarlo cuadro a cuadro: luego O, Tab o el gatillo derecho de un mando avanza un cuadro (mantenido: cuadro tras cuadro), y el número del cuadro aparece abajo en la imagen. P, o esta fila otra vez, lo reanuda. El juego calcula exactamente los mismos cuadros; la fila Velocidad de arriba lo ralentiza en su lugar."},
+    {"The training tools: a practice point, rewind, slow motion and frame advance, a start at any stage or its boss, a ship nothing can hit, hit boxes.", "Las herramientas de entrenamiento: un punto de práctica, rebobinar, cámara lenta y avance por cuadros, empezar en cualquier fase o en su jefe, una nave a la que nada puede dar, cajas de impacto."},
+    {"Sound filter", "Filtro de sonido"},
+    {"Soft", "Suave"},
+    {"Softer", "Más suave"},
+    {"Softens the board's sound: what the sound chips hand over can be harsh in the treble, a hiss and grit that headphones and good speakers bring out (the board's own amplifier took some of it away). Soft takes off the harshest of it; Softer, more, for a warmer sound. Off: the sound as the chips make it. The game plays exactly the same either way.", "Suaviza el sonido de la placa: lo que entregan los chips de sonido puede ser áspero en los agudos, un siseo y aspereza que los auriculares y los buenos altavoces hacen notar (el propio amplificador de la placa quitaba parte). Suave quita lo más áspero; Más suave, más, para un sonido más cálido. No: el sonido tal como lo hacen los chips. El juego se juega exactamente igual de las dos formas."},
+};
+
+} // namespace port

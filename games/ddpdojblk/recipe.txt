@@ -1,0 +1,3 @@
+# The checks' play: after the version screen (about 20 seconds), a coin, start, through the selects with the shot, then
+# the shot held and the stick moved
+--system 3000:6:4 --system 3100:6:0x10 --press 3300:6:0x10 --press 3400:6:0x10 --press 3500:6:0x10 --press 3600:3400:0x10 --press 4600:200:1 --press 5000:200:4 --press 5400:150:8 --press 5800:100:2

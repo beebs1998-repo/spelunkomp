@@ -1,0 +1,2 @@
+# The checks' play: a coin, start, a ship and its kind chosen, then the shot held and the stick moved
+--system 4000:6:4 --system 4100:6:0x10 --press 4300:6:0x10 --press 4400:6:0x10 --press 4500:2400:0x10 --press 5000:200:1

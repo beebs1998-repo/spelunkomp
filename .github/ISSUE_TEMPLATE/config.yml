@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# Copyright (C) 2026 Tommy McLeroy. Part of spelunkomp.
+# Requests for ROM sets or where to find them are closed without an answer: the ports work with your own copy of
+# each game, and this project cannot help anyone get one.
+blank_issues_enabled: false
