@@ -442,9 +442,9 @@ and stage 3's start (80, port 0). Over all clean play stretches, whatever their 
   (UlKA6KR6ZK8, the title at 26-38 s), shows neither: it is the 2007 Black Label (MAME futariblj, 2007/12/11 BLACK
   LABEL VER). The 2023 video skips the title; same owner and cabinet, so most likely the same board. Pictures:
   spelunkomp-data/video/gapcheck_ver.
-- The two share the NAND (graphics); only the program (u4) differs. futariblj's u4 (CRC b9467b6d) is not in
-  ../cv1k-roms, so what changed in its timing code (the 14 ms rule, the frame waits, the busy-play limits at 0C384884)
-  cannot be compared here. Get that program ROM to settle it.
+- The two share the NAND (graphics); only the program (u4) differs. futariblj's u4 (CRC b9467b6d) was not in
+  ../cv1k-roms then; it is now (games/futariblj), and the gap re-counted on it is in "Black Label against the 2007
+  program" below: the version does not explain it.
 - Futari 1.5 (buffi): the video's title says Ver 1.5; MAME's futari15 and futari15a are both 1.54 of 2006/12/8 (other
   dumps), so the same program as far as known. Mushihimesama's mushisama was found before.
 
@@ -468,9 +468,49 @@ and stage 3's start (80, port 0). Over all clean play stretches, whatever their 
   is late 1.17x as often as the port in Black Label's well-anchored play, and 1.13x in DFK's stage 1, both on routes
   with more on screen than the port's. Scripted scenes match on both games within a few frames.
 - What is left is single overruns in busy play (board 1.7x the port's in Black Label), the ~100 frames of Black
-  Label's replayed stage 1, and Black Label's board running another program (2007) than the port's (2009).
+  Label's replayed stage 1, and Black Label's board running another program (2007) than the port's (2009). (The
+  program is ruled out since: "Black Label against the 2007 program" below.)
 - **Not shown to be a model shortfall.** A model change would need, in order: the 2007 program (to replay stage 1 on
   the board's own code), then a board run of a known route. The counters are now trustworthy for that (`held`).
+
+### Black Label against the 2007 program (2026-11-23)
+
+The same comparison with the port running futariblj (the 2007/12/11 program the board runs, games/futariblj) instead
+of futaribl. The board's figures are those of "Black Label re-counted" above (held frames off the same scans); only the port side is new. Data:
+spelunkomp-data/video/gapcheck_blj (regap.py, stage1.md, regap.md, portmap.py and its map, the late logs, routes).
+
+- Run as before: the same menu inputs (the same screens at the same refreshes: Original, Palm), out of harm, the shot
+  held, 90,000 frames with `--timing` and `SPELUNK_LATE_LOG`. futaribl run again gives the late log of "Black Label re-counted"
+  over every window (it parts only at refresh 84,715, game frame 75,814, after the last).
+- **The 2007 program's stages fall at other game frames.** Same scroll, but the stage 1 boss dies sooner and the tallies
+  and boss fights differ in length: the same place is +2 game frames in stage 1, -120 in stage 2, -138 in stage 3,
+  +124 in stage 4 and -202/-209 in stage 5 (constant within each). Those windows (game frames of the futaribl run, by
+  the video's anchors) were carried over by lining the two port runs up by the background (`portmap.py`: follow.py's
+  score, every 30th game frame, 1,904 sure matches; each window's ends moved by the median shift within 300 frames).
+- Stage 1 against the replayed route: the route's pokes moved 0x430 down (the ship's place 0C383A68/0C383A6C, the
+  counter 0C383AC4/0C383AC8); the ship goes where it went in futaribl. Stage 1's windows need no carrying (+2).
+
+| | board, held | port, 2009 (futaribl, above) | port, 2007 (futariblj) |
+|---|---|---|---|
+| stage 1 | 255 | 197 (1.29) | 192 (1.33) |
+| stage 2 | 277 | 167 (1.66) | 248 (1.12) |
+| stage 3 | 319 | 613 (0.52) | 620 (0.51) |
+| stage 4 | 1,036 | 1,049 (0.99) | 962 (1.08) |
+| stage 5 | 1,812 | 1,139 (1.59) | 1,158 (1.56) |
+| all, 679 s | 3,699 | 3,165 (**1.17**) | 3,180 (**1.16**) |
+| long 1-in-2 runs | 2,606 | 2,537 (1.03) | 2,469 (1.06) |
+| single overruns | 1,093 | 628 (1.74) | 711 (1.54) |
+| stage 1, player's route, to the boss fight | 258 | 72-157 (5 variants) | 19-154 (keep 142, laser 154, shot 25, counter poked 154 / 19) |
+
+(Board / port in brackets. Without carrying the windows over, futariblj gives 3,193, 1.16, and the stages move by up
+to 80 frames: the carrying matters per stage, not overall.)
+
+- **Verdict: the version explains none of the gap.** Overall it is 1.16x on the 2007 program against 1.17x on the 2009
+  one. Single overruns close a little (1.74x to 1.54x, port 628 to 711) and stage 2 moves (1.66 to 1.12), but stage 5,
+  the largest, does not (1.59 to 1.56), and stage 1's replayed route is as far off as before: at 93.8-113.1 s the
+  board is late 78, futariblj 2-9 (futaribl 0-16).
+- So the 2007 and 2009 programs slow down alike in this play; what is left is as "Checking the counters" left it: single overruns on the
+  player's busier route, and about 100 late frames in stage 1 that only a board run of a known route can settle.
 
 ## 60 fps board videos found (2026-11-22)
 

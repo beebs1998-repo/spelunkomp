@@ -87,8 +87,8 @@ boards and the FPGA cores made from them:
   Over its 20 tests the port's mean error against the board is 0.8%, and it is within 2% on 19 of them; current MAME's
   mean error is 7.5%, shmupmame 5.4's 27.7%. In play, against two Mushihimesama boards filmed at 60 pictures a second,
   stage 3 is late 303 frames on the port and 356 and 384 on the boards. A Futari Black Label board on video is late
-  about 1.17 times as often as the port, on a busier route than the port's; that board runs the 2007 Black Label
-  program, and the port's set is the 2009 one, so that gap is not settled yet.
+  about 1.16 times as often as the port running the same 2007 Black Label program, on a busier route than the port's
+  (1.17 times with the 2009 program: the version is not the difference).
 - **Cave's 68000 board**: the 68000 runs to the cycle as fx68k, the cycle-exact 68000 in Cave's MiSTer core, and the
   frame is the 57.44 Hz measured on a board. Run beside that core, simulated, DoDonPachi, Guwange, ESP Ra.De. and
   Dangun Feveron keep every byte of the game's memory the same at every frame compared, play included, and drop the
