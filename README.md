@@ -29,6 +29,8 @@ The games' names are their owners' trademarks.
 
 <p align="center"><img src="docs/screenshots/bosses.jpg" width="100%" alt="Eight boss fights from the collection, as the port draws them, the screen full of bullets"></p>
 
+<p align="center"><img src="docs/screenshots/ddp-attract-hitboxes.gif" width="49%" alt="DoDonPachi's two-player attract demo in motion with the hit boxes shown: both ships, their shots, the enemies' boxes and a dot in each bullet"><br><em>DoDonPachi's attract demo, with the hit boxes on</em></p>
+
 ## What you need
 
 - macOS 13 or later (Apple silicon or Intel), Linux x86_64 or ARM64 (the Steam Deck and Steam Machine included),
@@ -54,6 +56,9 @@ The games' names are their owners' trademarks.
   like) with a replay of your last attempt, rewind through the last half minute, fast forward, an input display.
   From each game's own memory: a start at any stage or straight at its boss, a ship nothing can hit, bombs and ships
   that never run out, and the hit boxes as the game itself tests them. All off unless you turn them on.
+
+  <p align="center"><img src="docs/screenshots/rewind-ddp.gif" width="49%" alt="DoDonPachi's stage 5 boss: the ship is hit and explodes, the rewind runs the scene backwards about three seconds (a REWIND note at the top, the explosion undone and the score counting down), then play goes on and the ship gets through"><br><em>Rewind: hold R or the left trigger and the game runs backwards; let go and play on</em></p>
+
 - **Online play** with rollback: a game's two-player mode with someone on another machine, by a code or from the
   lobby. Nothing to set up on either router ([more](docs/ONLINE.md)).
 - **No added lag**: the controls are read the moment the game reads them, and run-ahead takes out the frames of lag the
@@ -69,7 +74,7 @@ The games' names are their owners' trademarks.
 - Free play, straight to the title, save states, faster play (up to 8x).
 
 <p align="center">
-  <img src="docs/screenshots/hit-boxes.jpg" width="49%" alt="A DoDonPachi boss fight with the hit boxes shown: the ship's small yellow core, the laser's box, the boss's parts and a white dot in each of the many bullets">
+  <img src="docs/screenshots/ddp-boss-hitboxes.gif" width="49%" alt="DoDonPachi's stage 5 boss in motion with the hit boxes shown: the ship's small yellow core and its laser's box weaving through about two hundred bullets, each with a white dot, under the boxes of the boss's parts">
   <img src="docs/screenshots/training-mode.jpg" width="49%" alt="The in-game menu's Training mode page">
 </p>
 
