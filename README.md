@@ -18,9 +18,10 @@ with its board's speed and slowdown, and training tools on top. You supply the g
 
 buffi's [CV1000 benchmark](https://buffis.com/arcade/benchmarking-cv1000-pcb-vs-mame-and-mister/), run on a real
 board (an Ibara PCB) and in the port with its board's slowdown on, as it ships. The PCB, MiSTer and MAME columns are
-buffi's own results; thanks to buffi for the benchmark and the board's numbers.
+buffi's own results (MAME is master built from source, as the newest CV1000 code is in no release yet; today's
+master gives the same numbers); thanks to buffi for the benchmark and the board's numbers.
 
-| test | PCB | Spelunkomp | MiSTer | MAME | Spelunkomp vs PCB (+ faster) |
+| test | PCB | Spelunkomp | MiSTer | MAME master | Spelunkomp vs PCB (+ faster) |
 |---|---|---|---|---|---|
 | RAMP 8X8 SPR (@60) | 4800 | 4850 | 5650 | 4875 | +1.0% |
 | RAMP 8X8 STILL (@60) | 9085 | 9085 | 9085 | 9123 | 0 |
