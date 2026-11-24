@@ -37,6 +37,13 @@ constexpr const char *kModesPage = "Alternative modes", *kTrainingPage = "Traini
 // (Game::unseen's bits besides player 1's controls: player 1's Start and a coin, held that frame)
 constexpr int kUnseenStart = 1 << 16, kUnseenCoin = 1 << 17;
 
+// A scoring counter the game hides, for the "Scoring readouts" training feature (shown down the picture's left side):
+// its name and how to read its value now ("": nothing to show, as between games)
+struct Readout {
+    const char *name;
+    std::string (*value)(const Board &board);
+};
+
 struct Game {
     std::vector<recomp::FeatureInfo> features;
     // Before each frame, with each feature's value (in the order of `features`)
@@ -64,6 +71,11 @@ struct Game {
     // True while a game is being played (the ship is the player's), where the game's facts say so: the input lag
     // readout measures only then
     bool (*playing)(Board &board) = nullptr;
+    // The scoring counters the game hides (gems, gauges, the hidden counter), read from its memory: with any, the
+    // toolkit offers the feature "readouts" on the Training mode page
+    std::vector<Readout> readouts;
+    // (what the readouts feature's description says they are, after "Shown down the left of the picture: ")
+    const char *readoutsWhat = nullptr;
 };
 // The game's own (games/<id>/src)
 const Game &ThisGame();

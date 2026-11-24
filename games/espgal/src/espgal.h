@@ -50,6 +50,11 @@ constexpr uint32_t kShips = 0x8139D7;
 // The guard barrier's gauge (a word: 4000 full, 0FA0; an item adds 2000, 123DA4; the barrier takes from it)
 constexpr uint32_t kBarrier = 0x80EEBA;
 constexpr uint32_t kBarrierFull = 0x0FA0;
+// The green gems (a word, the ship's record +0x6E; 500 at most, which the game shows in blue: found 2026-11-24 by RAM
+// dumps of made-up play against the number beside the gem, 100, 123, 67, 10, 0; copies at 813A02 and 813A04 are the
+// number shown). Kakusei takes from it
+constexpr uint32_t kGems = 0x80EF04;
+constexpr uint32_t kGemsFull = 500;
 // The ship's record (player 2's at 80EF36): flown while its first word is negative. The byte at +0x39 is the frames left
 // out of harm (about 0xE0 as a ship comes in, counted down; 0xFE, 0xFF while the barrier is up, 11951E)
 constexpr uint32_t kShip1 = 0x80EE96, kShip2 = 0x80EF36;

@@ -117,10 +117,22 @@ const Game &ThisGame() {
         f.bossTunes.assign(std::begin(mmpork::kBossTunes), std::end(mmpork::kBossTunes));
         f.bombs = mmpork::kBombs;
         f.bombsHeld = 2;
+        f.fullGauges.push_back({"lard_full", "Lard meter kept full",
+                                "The lard meter at the bottom of the picture is filled again as it is used: a lard attack "
+                                "whenever you want one.",
+                                mmpork::kLard, mmpork::kLardFull, 2});
         f.hitBoxes = HitBoxes;
         f.hitTest = mmpork::kHitTest;
         f.hitKinds |= 1u << HitBox::Ground | 1u << HitBox::Shot;
-        return shmup::MakeGame(mmpork::kCredits, f);
+        Game g = shmup::MakeGame(mmpork::kCredits, f);
+        // (the scoring readouts: the lard meter as a number, which the game shows only as its bar)
+        g.readouts = {{"LARD", [](const Board &board) {
+                           const uint32_t a = mmpork::kLard & (SH3::kRamSize - 1);
+                           const unsigned lard = static_cast<unsigned>(board.ram[a]) << 8 | board.ram[a + 1];
+                           return lard <= mmpork::kLardFull ? std::to_string(lard) + "/" + std::to_string(mmpork::kLardFull) : std::string();
+                       }}};
+        g.readoutsWhat = "the lard meter as a number (104 full)";
+        return g;
     }();
     return game;
 }

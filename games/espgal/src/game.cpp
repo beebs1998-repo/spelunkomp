@@ -167,6 +167,10 @@ const Game &ThisGame() {
         f.gauges = {{espgal::kBarrier, espgal::kBarrierFull, 2}};
         f.bombsTitle = "Barrier never runs out";
         f.bombsWords = "The guard barrier's gauge is kept full.";
+        f.fullGauges.push_back({"gems_full", "Gems kept full",
+                                "The green gems are kept at 500, the most there can be: Kakusei whenever you want it, for as "
+                                "long as you want it.",
+                                espgal::kGems, espgal::kGemsFull, 2});
         f.safeFrames = espgal::kSafeFrames;
         f.safeFramesHeld = 0xE0;
         f.safeFramesBytes = 1;
