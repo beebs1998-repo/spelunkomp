@@ -5,6 +5,9 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **Mushihimesama Matsuri Ver 1.5**, the version Cave made for its 2011 Cave Matsuri festival (FinalBurn Neo's
+  `matsuri15` set), as its own entry beside Mushihimesama, with every training feature and the hit boxes.
+
 ## 0.1.0-beta.2
 
 A fix for the CV1000 games' memory on Windows and some Linux desktops, the GPU named in the log, crash logs kept, and a

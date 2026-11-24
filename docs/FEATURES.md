@@ -10,7 +10,7 @@ Select). A game's program lists its own with `--list-features`.
 
 | Board | Games |
 | --- | --- |
-| CV1000 (SH-3) | Mushihimesama, Ibara, Ibara Kuro Black Label, Espgaluda II, Pink Sweets, Mushihimesama Futari (Ver 1.0, Ver 1.5, Black Label and its 2009 Another Ver), Muchi Muchi Pork!, Deathsmiles and MegaBlack Label, DoDonPachi Dai-Fukkatsu (Ver 1.0, Ver 1.5 and Black Label), Akai Katana, DoDonPachi SaiDaiOuJou |
+| CV1000 (SH-3) | Mushihimesama (and its 2011 Cave Matsuri Ver 1.5), Ibara, Ibara Kuro Black Label, Espgaluda II, Pink Sweets, Mushihimesama Futari (Ver 1.0, Ver 1.5, Black Label and its 2009 Another Ver), Muchi Muchi Pork!, Deathsmiles and MegaBlack Label, DoDonPachi Dai-Fukkatsu (Ver 1.0, Ver 1.5 and Black Label), Akai Katana, DoDonPachi SaiDaiOuJou |
 | Cave's 68000 board | DonPachi (Japan Ver 1.01 and US Ver 1.12), DoDonPachi, Dangun Feveron, ESP Ra.De., Guwange, Mazinger Z, Air Gallet |
 | IGS PGM | DoDonPachi Dai-Ou-Jou and Black Label, Ketsui, Espgaluda, DoDonPachi II: Bee Storm |
 
