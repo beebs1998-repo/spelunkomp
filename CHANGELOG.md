@@ -7,6 +7,12 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 - **Mushihimesama Matsuri Ver 1.5**, the version Cave made for its 2011 Cave Matsuri festival (FinalBurn Neo's
   `matsuri15` set), as its own entry beside Mushihimesama, with every training feature and the hit boxes.
+- **Your own shaders, one folder for every game** (#16): the Shader setting's **Your own** now draws with a preset you
+  choose by name, under **Your own preset**, from a `shaders` folder all the games share, beside the launcher's
+  settings (a RetroArch shader pack can go in whole, its passes beside it). The launcher makes the folder, shows where it
+  is and has an **Open shaders folder** button; updates leave it alone. A game's own `shaders` folder still works and
+  comes first. A preset that fails to load says why (librashader's reason), over the picture and in the menu, instead
+  of the picture quietly going without it.
 
 ## 0.1.0-beta.2
 

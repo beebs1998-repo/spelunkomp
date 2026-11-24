@@ -9,6 +9,7 @@
 #include "../../port/bindings.h"
 #include "../../port/i18n.h"
 #include "../../port/netplay.h"
+#include "../../runtime/own_shader.h"
 #include "../../runtime/romset.h"
 
 #include <cctype>
@@ -93,6 +94,8 @@ launcher::Description describe_game(const char *config) {
     d.online.delay_argument = "--net-delay"; // (the host's choice, told to the one joining in the welcome: port/netplay.cpp)
 #ifndef __ANDROID__ // (a phone: its one screen, full)
     d.display = {{"fullscreen", "Full screen", "F11 switches while playing.", false, nullptr}};
+    // (the Shader's Your own: the player's presets, in the shaders folder every game shares, beside launcher.ini)
+    d.own_shaders = {"shader", spelunk::kYourOwnShader};
 #endif
     d.bindings = port::MakeBoundTable(2, get("buttons")).table;
     d.controls_heading = "WHILE PLAYING";

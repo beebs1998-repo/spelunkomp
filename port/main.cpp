@@ -25,6 +25,7 @@
 #include "../recomp-common/menu.h"
 #include "../recomp-common/menu_layout.h"
 #include "../recomp-common/menu_sdl.h"
+#include "../recomp-common/own_shaders.h"
 #include "../runtime/dodge.h"
 #include "../runtime/game.h"
 #include "../runtime/hit_boxes.h"
@@ -202,25 +203,36 @@ const char *const kShaderPresets[] = {
     "edge-smoothing/xbrz/xbrz-freescale-multipass.slangp", "edge-smoothing/scalefx/scalefx.slangp",
     "crt/newpixie-crt.slangp",
 };
-constexpr int kYourOwnShader = 12;
+// (and Your own, kYourOwnShader: runtime/game.h)
 
-// The preset file the Shader feature's choice `value` names; "" for none (Off, or Your own with no preset there)
-std::string ShaderPreset(int value, const std::string &settingsPath) {
+// Your own's presets (recomp-common/own_shaders.h): the shaders folder every game shares, in the launcher's folder
+// (named so; the launcher says where in RECOMP_SHADERS), and this game's own, beside its settings.ini
+constexpr const char *kLauncherName = "Spelunkomp";
+struct OwnShaderFolders {
+    std::filesystem::path game, shared;
+};
+OwnShaderFolders OwnShaderFoldersOf(const std::string &settingsPath) {
+    if (settingsPath.empty()) {
+        return {{}, recomp::shaders::SharedFolder({}, kLauncherName)}; // (RECOMP_SHADERS, if any)
+    }
+    const std::filesystem::path folder = recomp::shaders::PathOf(settingsPath).parent_path();
+    return {recomp::shaders::GameFolder(folder), recomp::shaders::SharedFolder(folder, kLauncherName)};
+}
+
+// The preset file the Shader feature's choice `value` names; "" for none (Off; or Your own with none, and `why`).
+// Your own: the player's preset named `own` ("": the first found), in this game's shaders folder or the shared one
+std::string ShaderPreset(int value, const std::string &settingsPath, const std::string &own, std::string &why) {
     namespace fs = std::filesystem;
     std::error_code error;
+    why.clear();
     if (value == kYourOwnShader) {
-        // (the first .slangp, by name, in shaders/ beside settings.ini)
-        if (settingsPath.empty()) {
-            return "";
+        const OwnShaderFolders folders = OwnShaderFoldersOf(settingsPath);
+        const std::vector<recomp::shaders::Preset> found = recomp::shaders::Find(folders.game, folders.shared);
+        const recomp::shaders::Preset *preset = recomp::shaders::Pick(found, own, why);
+        if (!preset) {
+            why += " (" + recomp::shaders::Utf8(folders.shared) + ")";
         }
-        std::vector<fs::path> found;
-        for (const auto &entry : fs::directory_iterator(fs::path(settingsPath).parent_path() / "shaders", error)) {
-            if (entry.path().extension() == ".slangp") {
-                found.push_back(entry.path());
-            }
-        }
-        std::sort(found.begin(), found.end());
-        return found.empty() ? "" : found.front().string();
+        return preset ? recomp::shaders::Utf8(preset->file) : "";
     }
     const int entry = value < kYourOwnShader ? value - 1 : value - 2; // (kShaderPresets' entry)
     if (value < 1 || entry >= static_cast<int>(std::size(kShaderPresets))) {
@@ -566,17 +578,32 @@ int main(int argc, char **argv) {
     // The Shader feature's preset (or --shader's), "" for none or when librashader is not there to draw it
     const size_t shaderAt = FeatureIndex(ToolkitFeature::Shader), linesAt = FeatureIndex(ToolkitFeature::ScanlineDirection);
     const bool canShade = strcmp(SDL_GetCurrentVideoDriver(), "dummy") != 0;
+    // (Your own's preset, by name: settings.ini's [shader] own, which the launcher and the menu choose; and why a
+    // preset could not be drawn, to be said over the picture and in the menu, as well as in the log)
+    std::string ownShader;
+    if (!settingsPath.empty()) {
+        recomp::Ini ini(settingsPath);
+        ini.load();
+        ownShader = recomp::shaders::Chosen(ini);
+    }
+    std::string shaderProblem;
     auto presetNow = [&]() -> std::string {
-        std::string file = !canShade ? "" : !shaderFile.empty() ? shaderFile : ShaderPreset(features[shaderAt], settingsPath);
         std::string why;
+        std::string file = !canShade ? "" : !shaderFile.empty() ? shaderFile : ShaderPreset(features[shaderAt], settingsPath, ownShader, why);
+        if (!why.empty()) {
+            fprintf(stderr, "shader: Your own: %s; the picture is drawn without it\n", why.c_str());
+            shaderProblem = recomp::i18n::TrFormat("Your own shader: {}", {why});
+        }
         if (!file.empty() && !port::Shading::Available(why)) {
             fprintf(stderr, "shader: %s; the picture is drawn without it\n", why.c_str());
+            shaderProblem = recomp::i18n::TrFormat("No shader: {}", {why});
             file.clear();
         }
         return file;
     };
     std::string preset = presetNow();
     int shaderValue = features[shaderAt];
+    std::string shaderOwn = ownShader; // (the name the preset was found by)
     // The picture as the window is to show it: the Screen feature's turn. With an arcade monitor's resolution chosen,
     // never stood up: the picture as the board sends it, its lines the monitor's, for a monitor on its side as the
     // cabinet's was (As the cabinet, top to the right: the half turn, for one turned the other way)
@@ -689,6 +716,7 @@ int main(int argc, char **argv) {
                 return true;
             }
             fprintf(stderr, "shader %s: %s; the picture is drawn without it\n", preset.c_str(), why.c_str());
+            shaderProblem = recomp::i18n::TrFormat("The shader {} didn't load: {}", {recomp::shaders::Utf8(recomp::shaders::PathOf(preset).filename()), why});
             made.reset();
             preset.clear();
             if (!remakeWindow(false)) {
@@ -744,10 +772,13 @@ int main(int argc, char **argv) {
     // or without it
     bool running = true;
     auto followShader = [&]() {
-        if (features[shaderAt] == shaderValue || !shaderFile.empty() || !canShade) {
+        // (or Your own's preset chosen by another name, while it is chosen)
+        if ((features[shaderAt] == shaderValue && (shaderValue != kYourOwnShader || ownShader == shaderOwn)) || !shaderFile.empty() ||
+            !canShade) {
             return;
         }
         shaderValue = features[shaderAt];
+        shaderOwn = ownShader;
         const std::string next = presetNow();
         if (next == preset) {
             return;
@@ -758,6 +789,11 @@ int main(int argc, char **argv) {
                 preset = next;
             } else {
                 fprintf(stderr, "shader %s: %s; the one before is kept\n", next.c_str(), why.c_str());
+                while (!why.empty() && why.back() == '.') {
+                    why.pop_back(); // (librashader's ends with one)
+                }
+                shaderProblem = recomp::i18n::TrFormat("The shader {} didn't load: {}. The one before is kept.",
+                                                       {recomp::shaders::Utf8(recomp::shaders::PathOf(next).filename()), why});
             }
             return;
         }
@@ -1099,20 +1135,65 @@ int main(int argc, char **argv) {
         menuConfig.commands.push_back(attractRow);
         menu.Configure(menuConfig);
     };
+    // The Display page's Your own preset, under the Shader (recomp-common/own_shaders.h): the presets in the shaders
+    // folder every game shares and this game's own, found again each time the menu opens (ownMenuRow), so one put
+    // there while the game runs is in the list; chosen by name ([shader] own), which chooses Your own too. The menu's
+    // features are the game's with this one after the Shader: menuFeature turns the menu's place into the game's
+    const size_t ownAt = shaderAt + 1;
+    recomp::shaders::Choices ownChoices;
+    auto menuFeature = [ownAt](size_t i) { return i < ownAt ? i : i - 1; };
+    auto ownMenuRow = [&]() {
+        const OwnShaderFolders folders = OwnShaderFoldersOf(settingsPath);
+        ownChoices = recomp::shaders::MakeChoices(recomp::shaders::Find(folders.game, folders.shared), ownShader);
+        menuConfig.features[ownAt].choices = ownChoices.labels;
+        menuConfig.features[ownAt].description = recomp::shaders::MenuDescription(folders.shared, folders.game);
+    };
     {
         recomp::MenuConfig &mc = menuConfig;
         for (const recomp::FeatureInfo &f : AllFeatures()) {
             mc.features.push_back({f.category, f.title, f.description, f.choices});
         }
+        mc.features.insert(mc.features.begin() + static_cast<std::ptrdiff_t>(ownAt),
+                           recomp::MenuFeature{AllFeatures()[shaderAt].category, recomp::shaders::kTitle, "", {}});
+        ownMenuRow();
         // (in attract mode, the features it turns off are shown and set as the player's, for after it)
-        mc.value = [&](size_t i) { return attract && attractOff(i) ? attractOwn[i] : features[i]; };
-        mc.setValue = [&](size_t i, int v) {
+        auto setFeature = [&](size_t i, int v) {
             (attract && attractOff(i) ? attractOwn[i] : features[i]) = v;
             if (!settingsPath.empty()) {
                 recomp::Ini ini(settingsPath);
                 ini.load();
                 recomp::SetFeature(ini, AllFeatures(), i, v);
                 ini.save();
+            }
+        };
+        mc.value = [&](size_t at) {
+            if (at == ownAt) {
+                return ownChoices.IndexOf(ownShader);
+            }
+            const size_t i = menuFeature(at);
+            return attract && attractOff(i) ? attractOwn[i] : features[i];
+        };
+        mc.setValue = [&, setFeature](size_t at, int v) {
+            if (at == ownAt) {
+                ownShader = ownChoices.NameAt(v);
+                if (!settingsPath.empty()) {
+                    recomp::Ini ini(settingsPath);
+                    ini.load();
+                    recomp::shaders::Choose(ini, ownShader);
+                    ini.save();
+                }
+                if (features[shaderAt] != kYourOwnShader) {
+                    setFeature(shaderAt, kYourOwnShader);
+                }
+            } else {
+                setFeature(menuFeature(at), v);
+            }
+            // (the Shader, or Your own's preset: drawn with at once, and a preset that won't load said here, in the menu)
+            if (at == ownAt || menuFeature(at) == shaderAt) {
+                followShader();
+                if (!shaderProblem.empty()) {
+                    menu.Note(shaderProblem);
+                }
             }
         };
         // (of a feature of many choices, those the launcher lets the menu offer: the Shader's; and of one set on the
@@ -1130,8 +1211,9 @@ int main(int argc, char **argv) {
                     offered.back().assign(std::max<size_t>(f.choices.size(), 2), false);
                 }
             }
-            mc.offered = [offered](size_t feature, int choice) {
-                return feature >= offered.size() || choice < 0 || choice >= static_cast<int>(offered[feature].size()) ||
+            mc.offered = [offered, ownAt, menuFeature](size_t at, int choice) {
+                const size_t feature = menuFeature(at);
+                return at == ownAt || feature >= offered.size() || choice < 0 || choice >= static_cast<int>(offered[feature].size()) ||
                        offered[feature][static_cast<size_t>(choice)];
             };
         }
@@ -1340,6 +1422,8 @@ int main(int argc, char **argv) {
         }
         menu.SetCompact(compactMenu());
         TurnTo(picture.data(), turnNow(), frozenW, frozenH, frozen);
+        ownMenuRow(); // (the presets there now)
+        menu.Configure(menuConfig);
         menu.Open();
         menuRepeat.Step(menuHeld()); // (what opened it is not also a press in it)
     };
@@ -1930,6 +2014,15 @@ int main(int argc, char **argv) {
             netScreen.leaving = !netScreen.leaving;
         }
         followShader();
+        if (!shaderProblem.empty()) {
+            // (a preset that couldn't be drawn: why, over the picture for ten seconds, and in the menu if it is open)
+            say(shaderProblem);
+            noteFrames = 600;
+            if (menu.IsOpen()) {
+                menu.Note(shaderProblem);
+            }
+            shaderProblem.clear();
+        }
         followShape();
         // (the Arcade monitor page's screen or resolution changed: the menu can put them back to off)
         arcade.Follow(window, arcadeChoices());

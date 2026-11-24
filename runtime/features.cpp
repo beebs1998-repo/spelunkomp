@@ -19,7 +19,8 @@ namespace {
              "largest that fits, if the window is smaller). Fill the window: as large as fits, with pixels of uneven sizes.",
              0, {"Whole pixels (largest that fits)", "Fill the window", "1x", "2x", "3x", "4x", "5x", "6x", "7x", "8x"}},
             // (shader: port/shading.h; its presets kShaderPresets in port/main.cpp, in shaders/ beside the program: the
-            // same list and words as cps2recomp's Display page, and CRT Newpixie after Your own; tools/librashader.sh)
+            // same list and words as cps2recomp's Display page, and CRT Newpixie after Your own; tools/librashader.sh. Your own's
+            // presets: recomp-common/own_shaders.h, and its own row under this one in the menu and the launcher)
             {"shader", "Display", "Shader",
              "The picture drawn through one of RetroArch's shaders. CRT: a curved arcade monitor. CRT "
              "Lottes and CRT Guest: flat monitors, sharp and bright. CRT Royale: the closest to a real "
@@ -27,8 +28,9 @@ namespace {
              "CRT Newpixie: a light CRT look with chromatic aberration, ghosting, a little curvature and scanlines. "
              "Scanlines: the lines alone, light, strong, as an OSSC draws them, or dark (a black line "
              "between each two, best with Whole pixels). xBRZ and ScaleFX: the pixels' edges made smooth "
-             "lines and curves. Your own: the first .slangp preset in the shaders folder beside the "
-             "game's settings. The launcher chooses which of these the menu goes through. The picture's "
+             "lines and curves. Your own: a .slangp preset of yours, chosen under Your own preset, from the "
+             "shaders folder every game shares (the launcher's Open shaders folder opens it) or the game's "
+             "own. The launcher chooses which of these the menu goes through. The picture's "
              "shape and size stay as set; the shader draws its pixels in place of Scaling.",
              recomp::kFeatureMenuChoices,
              {"Off", "CRT", "CRT Lottes", "CRT Royale", "CRT Guest", "CRT Light", "Scanlines: light", "Scanlines: strong",

@@ -7,6 +7,7 @@
 #include "../machine/board.h"
 #include "../recomp-common/menu.h"
 #include "../recomp-common/settings.h"
+#include "own_shader.h"
 
 #include <cstdint>
 #include <string>
@@ -81,6 +82,7 @@ void AddProgramFeatures(std::vector<recomp::FeatureInfo> features);
 // FeatureIndex is then past the list's end)
 enum class ToolkitFeature { Screen, Scaling, Shader, ScanlineDirection, RunAhead, InputLag, PracticePoint, Rewind, FastForward, InputDisplay, SpeedReadout, Slowdown };
 size_t FeatureIndex(ToolkitFeature feature);
+// (the Shader feature's Your own: kYourOwnShader, runtime/own_shader.h)
 size_t FeatureIndex(const std::string &name);
 
 } // namespace spelunk
