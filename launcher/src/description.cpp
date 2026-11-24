@@ -121,8 +121,9 @@ launcher::Description describe_game(const char *config) {
     d.bindings = port::MakeBoundTable(2, get("buttons")).table;
     d.controls_heading = "WHILE PLAYING";
 #ifdef __ANDROID__
-    d.controls = {{"Touch", "A stick and the game's buttons on the screen, with Coin, Start and Menu (beside the picture held sideways, "
-                            "under it held upright); a gamepad's use hides them. Back, a gamepad's Guide, or Start and Select "
+    d.controls = {{"Touch", "The game's buttons on the screen, with Coin, Start and Menu (beside the picture held sideways, under it "
+                            "held upright); a finger anywhere else moves the ship as it moves (or an on-screen stick: Touch movement). "
+                            "A gamepad's use hides them. Back, a gamepad's Guide, or Start and Select "
                             "together: the in-game menu (save states, speed, features, coin, reset, quit; Menu button, above: "
                             "which gamepad buttons). "
                             "The first two gamepads are players 1 and 2."}};

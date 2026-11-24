@@ -73,8 +73,9 @@ The games' names are their owners' trademarks.
 - Each game's arcade ROM set, as a zip named for the version (`mushisam.zip`, `futari15.zip`): each entry in the
   launcher takes its own version's set, which its page names. A game with several versions has an entry for each.
   MAME's split and merged sets work too: a clone's zip with its parent's (`ddpdfk.zip` for `ddpdfk10.zip`) beside it.
-- A keyboard, or one or two gamepads; on Android the screen's own controls (a stick and the game's buttons, beside
-  the picture held sideways or under it held upright) until a gamepad is used.
+- A keyboard, or one or two gamepads; on Android the screen's own controls until a gamepad is used: the game's
+  buttons, and the ship moving as your finger moves anywhere else on the screen, from where the ship is (so it stays
+  in sight), as some of Cave's own phone ports played. An on-screen stick instead is a setting away.
 
 ## Playing
 

@@ -349,6 +349,14 @@ int main(int argc, char **argv) {
         int player;
     };
     std::vector<Held> held;
+    // (checks: --drag FRAME:COUNT:X0,Y0:X1,Y1[:HOLD], a finger on the touch screen put down at FRAME at X0,Y0 (the
+    // window's width and height 1), moved evenly to X1,Y1 over COUNT frames, held there HOLD frames and lifted; each
+    // frame's steering logged)
+    struct Drag {
+        uint64_t from, count, hold;
+        float x0, y0, x1, y1;
+    };
+    std::vector<Drag> drags;
     struct MenuTest {
         uint64_t frame;
         std::string keys, shot;
@@ -399,6 +407,14 @@ int main(int argc, char **argv) {
             int player = 1;
             sscanf(argv[++i], "%llu:%llu:%i:%d", &from, &count, &bits, &player); // (checks: FRAME:COUNT:BITS[:PLAYER])
             held.push_back({from, count, bits, a == "--system" ? -1 : (player == 2 ? 1 : 0)});
+        } else if (a == "--drag" && i + 1 < argc) {
+            Drag d{};
+            unsigned long long from = 0, count = 1, hold = 0;
+            sscanf(argv[++i], "%llu:%llu:%f,%f:%f,%f:%llu", &from, &count, &d.x0, &d.y0, &d.x1, &d.y1, &hold);
+            d.from = from;
+            d.count = std::max(1ull, count);
+            d.hold = hold;
+            drags.push_back(d);
         } else if (a == "--menu" && i + 1 < argc) {
             const std::string v = argv[++i]; // FRAME:KEYS:shot.png (u d l r c b: the menu's buttons), for checks
             const size_t c1 = v.find(':'), c2 = v.find(':', c1 + 1);
@@ -853,10 +869,68 @@ int main(int argc, char **argv) {
         // (upright with the touch controls, at the top: they go under it)
         return SDL_FRect{std::floor((ow - w) / 2), touch.WantsPictureAtTop(ow, oh) ? 0.0f : std::floor((oh - h) / 2), w, h};
     };
+    // Following the finger (port/touch.h): player 1's ship where the game's hit boxes put it, turned upright as the
+    // cabinet stood it (the stick's up its up); the nearest to where it was last, player 2's being there too
+    const size_t touchMovementAt = FeatureIndex("touch_movement");
+    {
+        // (a board pixel's place, or a step's, turned by `degrees` as Turn turns the picture: its middle kept if `step`)
+        auto turned = [](int degrees, float x, float y, bool step, float &tx, float &ty) {
+            const float w = step ? 0 : Hw::kWidth, h = step ? 0 : Hw::kHeight;
+            switch (((degrees % 360) + 360) % 360) {
+            case 90: tx = h - y; ty = x; break;
+            case 180: tx = w - x; ty = h - y; break;
+            case 270: tx = y; ty = w - x; break;
+            default: tx = x; ty = y; break;
+            }
+        };
+        port::TouchControls::Ship ship;
+        ship.where = [&board, rotate, turned](float &x, float &y) {
+            if (!ThisGame().hitBoxes) {
+                return false;
+            }
+            static std::vector<HitBox> boxes;
+            static float lastX = -1e9f, lastY = -1e9f;
+            boxes.clear();
+            ThisGame().hitBoxes(*board, boxes);
+            bool found = false;
+            float best = 0;
+            for (const HitBox &b : boxes) {
+                if (b.kind != HitBox::Ship) {
+                    continue;
+                }
+                float bx = 0, by = 0;
+                turned(rotate, (b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2, false, bx, by);
+                const float d = std::hypot(bx - lastX, by - lastY);
+                if (!found || d < best) {
+                    x = bx;
+                    y = by;
+                    best = d;
+                }
+                found = true;
+                if (lastX < -1e8f) {
+                    break; // (none before: player 1's, the first)
+                }
+            }
+            lastX = found ? x : -1e9f;
+            lastY = found ? y : -1e9f;
+            return found;
+        };
+        // (a step across the window: in the picture's pixels as shown, back to the board's, then turned as the cabinet)
+        ship.fromWindow = [&, turned](float dx, float dy, float &x, float &y) {
+            const SDL_FRect at = place();
+            const int shown = turnNow();
+            const bool sideways = shown % 180 != 0;
+            const float pw = sideways ? Hw::kHeight : Hw::kWidth, ph = sideways ? Hw::kWidth : Hw::kHeight;
+            const float ux = at.w > 0 ? dx * pw / at.w : 0, uy = at.h > 0 ? dy * ph / at.h : 0;
+            turned(rotate - shown, ux, uy, true, x, y);
+        };
+        touch.SetShip(std::move(ship));
+    }
     // The touch controls laid out for the window and the picture's place in it, and their picture handed to whichever
     // draws the window, when it changed
     auto touchLayer = [&]() {
         touch.Allow(touchAt >= features.size() || features[touchAt] != 1);
+        touch.Follow(touchMovementAt >= features.size() || features[touchMovementAt] == 0);
         int ow = 0, oh = 0;
         SDL_GetWindowSizeInPixels(window, &ow, &oh);
         touch.Layout(ow, oh, place());
@@ -2323,6 +2397,22 @@ int main(int argc, char **argv) {
         }
         steps -= steps > 0;
 
+        if (!drags.empty()) {
+            int ow = 0, oh = 0;
+            SDL_GetWindowSizeInPixels(window, &ow, &oh);
+            for (const Drag &d : drags) {
+                const uint64_t end = d.from + d.count + d.hold;
+                if (frameCount >= d.from && frameCount <= end) {
+                    const float t = std::min(1.0f, static_cast<float>(frameCount - d.from) / static_cast<float>(d.count));
+                    const float x = (d.x0 + (d.x1 - d.x0) * t) * ow, y = (d.y0 + (d.y1 - d.y0) * t) * oh;
+                    touch.Scripted(frameCount == d.from ? SDL_EVENT_FINGER_DOWN : frameCount == end ? SDL_EVENT_FINGER_UP : SDL_EVENT_FINGER_MOTION, x,
+                                   y);
+                }
+            }
+            if (const std::string steering = touch.Steering(); !steering.empty()) {
+                printf("drag %llu: %s\n", static_cast<unsigned long long>(frameCount), steering.c_str());
+            }
+        }
         controls.scripted[0] = controls.scripted[1] = controls.scriptedSystem = 0;
         for (const Held &h : held) {
             if (frameCount >= h.from && frameCount < h.from + h.count) {

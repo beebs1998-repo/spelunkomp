@@ -1,7 +1,8 @@
 # Online play
 
 Two players, each on their own machine, play a game's two-player mode together, with **rollback** netcode. It is
-cps2recomp's online play (its `port/netplay.*` and its introduction service), made for these games and their boards.
+cps2recomp's online play (its `port/netplay.*`, and a copy of its introduction service, `online/`), made for these games
+and their boards.
 
 ## Starting a match
 
@@ -45,12 +46,13 @@ Other options: `--net-name NAME` (shown to the other player), `--net-list` (the 
 
 ## How it connects
 
-The two games are introduced by the small service cps2recomp's ports use (its `online/`: a Cloudflare Worker), which
-tells each where the other can be reached; they then connect straight to each other through their routers (UDP hole
-punching), and none of the match goes through it. A code lasts 30 minutes and is good for one match. The service keeps
-each toolkit's lobby and waiting room apart by the protocol number a game says (`Netplay::kLobbyProtocol`: 4000 and up
-for spelunkomp), so Spelunkomp's lobby lists only Spelunkomp's matches; a game says its id (`mushisam`, from game.cfg),
-its title and its version with it. Nothing needed registering with the service.
+The two games are introduced by Spelunkomp's own small service (`online/`, a copy of cps2recomp's: a Cloudflare
+Worker, spelunkomp-online.tmcleroy.workers.dev), which tells each where the other can be reached; they then connect
+straight to each other through their routers (UDP hole punching), and none of the match goes through it. A code lasts
+30 minutes and is good for one match. The service keeps each toolkit's lobby and waiting room apart by the protocol
+number a game says (`Netplay::kLobbyProtocol`: 4000 and up for spelunkomp), so Spelunkomp's lobby lists only
+Spelunkomp's matches; a game says its id (`mushisam`, from game.cfg), its title and its version with it. Nothing
+needed registering with the service.
 
 **Joining by address** works without the service: on a home network, the host's own address (the Online card lists
 it); over the internet, the host's public address with UDP port 7845 forwarded to it; or a VPN such as Tailscale.
