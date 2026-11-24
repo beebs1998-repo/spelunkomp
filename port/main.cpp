@@ -194,14 +194,15 @@ void MarkHitBoxes(port::Hud &hud, const Board &board, int degrees, const std::ve
 
 // The Display page's Shader's presets, in the order of its choices after Off (the folders and files of RetroArch's
 // slang-shaders, copied to shaders/ beside the program by tools/shaders.py; cps2recomp's list, so the ports' menus
-// match), and after them what Your own is
+// match), then Your own, then the ones added after it (CRT Newpixie), so a saved choice keeps its number
 const char *const kShaderPresets[] = {
     "crt/crt-geom-mini.slangp", "crt/crt-lottes.slangp", "crt/crt-royale.slangp", "crt/crt-guest-advanced-fast.slangp",
     "crt/zfast-crt.slangp", "scanlines/scanline-fract.slangp", "pixel-art-scaling/sharp-bilinear-scanlines.slangp",
     "scanlines/ossc.slangp", "scanlines/integer-scaling-scanlines.slangp",
     "edge-smoothing/xbrz/xbrz-freescale-multipass.slangp", "edge-smoothing/scalefx/scalefx.slangp",
+    "crt/newpixie-crt.slangp",
 };
-constexpr int kYourOwnShader = 1 + static_cast<int>(std::size(kShaderPresets));
+constexpr int kYourOwnShader = 12;
 
 // The preset file the Shader feature's choice `value` names; "" for none (Off, or Your own with no preset there)
 std::string ShaderPreset(int value, const std::string &settingsPath) {
@@ -221,21 +222,22 @@ std::string ShaderPreset(int value, const std::string &settingsPath) {
         std::sort(found.begin(), found.end());
         return found.empty() ? "" : found.front().string();
     }
-    if (value < 1 || value >= kYourOwnShader) {
+    const int entry = value < kYourOwnShader ? value - 1 : value - 2; // (kShaderPresets' entry)
+    if (value < 1 || entry >= static_cast<int>(std::size(kShaderPresets))) {
         return "";
     }
     // (beside the program, or in a macOS app its Resources; SPELUNK_SHADERS for another folder)
     if (const char *folder = getenv("SPELUNK_SHADERS")) {
-        return (fs::path(folder) / kShaderPresets[value - 1]).string();
+        return (fs::path(folder) / kShaderPresets[entry]).string();
     }
     const char *base = SDL_GetBasePath();
     const fs::path program = base ? fs::path(base) : fs::path(".");
     for (const fs::path &at : {program / "shaders", program / ".." / "Resources" / "shaders"}) {
-        if (fs::exists(at / kShaderPresets[value - 1], error)) {
-            return (at / kShaderPresets[value - 1]).string();
+        if (fs::exists(at / kShaderPresets[entry], error)) {
+            return (at / kShaderPresets[entry]).string();
         }
     }
-    return (program / "shaders" / kShaderPresets[value - 1]).string();
+    return (program / "shaders" / kShaderPresets[entry]).string();
 }
 
 // What the frontend reads the host's devices into, when the game asks

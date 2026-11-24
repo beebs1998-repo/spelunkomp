@@ -25,7 +25,7 @@ Each needs its own arcade ROM set, one version of it: the launcher's page for th
 | Graphics | Screen | Stood up for an ordinary screen, or as the cabinet sends it, for a screen turned on its side (top to the left or right) |
 | Graphics | Scaling | Whole pixels (the largest whole multiple that fits), a fixed multiple, or fill the window |
 | Graphics | Aspect | As the cabinet's 4:3 monitor, or square pixels |
-| Graphics | Shader | RetroArch's shaders through librashader: CRT, CRT Lottes, CRT Guest, CRT Royale, CRT Light, scanlines, xBRZ and more, or your own preset |
+| Graphics | Shader | RetroArch's shaders through librashader: CRT, CRT Lottes, CRT Guest, CRT Royale, CRT Light, CRT Newpixie (a light CRT look with chromatic aberration, ghosting, a little curvature and scanlines), scanlines, xBRZ and more, or your own preset |
 | Graphics | Scanline direction | A shader's lines down the picture, as on the cabinet's turned monitor, or across it |
 | Arcade monitor | Full screen resolution | For a CRT at arcade rates (CRT Emudriver, a custom resolution): full screen in the board's own resolution, pixel for pixel (CV1000 and Cave's 68000 board 320 x 240, Mazinger Z 384 x 240, the PGM 448 x 224), or a super resolution of its lines and 1920 columns or more (the PGM's 224 lines one for one in a mode of 240 where the card has none of 224); only a mode near the board's rate (60.02, 57.44, 59.19 Hz). A game made for a monitor on its side is shown as the board sends it, for a monitor turned as the cabinet's was. Set on the launcher; not on Android |
 | Arcade monitor | Screen | Which screen the game opens and goes full screen on. Set on the launcher |

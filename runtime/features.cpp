@@ -19,11 +19,12 @@ namespace {
              "largest that fits, if the window is smaller). Fill the window: as large as fits, with pixels of uneven sizes.",
              0, {"Whole pixels (largest that fits)", "Fill the window", "1x", "2x", "3x", "4x", "5x", "6x", "7x", "8x"}},
             // (shader: port/shading.h; its presets kShaderPresets in port/main.cpp, in shaders/ beside the program: the
-            // same list and words as cps2recomp's Display page, tools/librashader.sh)
+            // same list and words as cps2recomp's Display page, and CRT Newpixie after Your own; tools/librashader.sh)
             {"shader", "Display", "Shader",
              "The picture drawn through one of RetroArch's shaders. CRT: a curved arcade monitor. CRT "
              "Lottes and CRT Guest: flat monitors, sharp and bright. CRT Royale: the closest to a real "
              "monitor's glass and the slowest. CRT Light: lines and a faint mask, for a slow computer. "
+             "CRT Newpixie: a light CRT look with chromatic aberration, ghosting, a little curvature and scanlines. "
              "Scanlines: the lines alone, light, strong, as an OSSC draws them, or dark (a black line "
              "between each two, best with Whole pixels). xBRZ and ScaleFX: the pixels' edges made smooth "
              "lines and curves. Your own: the first .slangp preset in the shaders folder beside the "
@@ -31,7 +32,7 @@ namespace {
              "shape and size stay as set; the shader draws its pixels in place of Scaling.",
              recomp::kFeatureMenuChoices,
              {"Off", "CRT", "CRT Lottes", "CRT Royale", "CRT Guest", "CRT Light", "Scanlines: light", "Scanlines: strong",
-              "Scanlines: OSSC", "Scanlines: dark", "xBRZ", "ScaleFX", "Your own"}},
+              "Scanlines: OSSC", "Scanlines: dark", "xBRZ", "ScaleFX", "Your own", "CRT Newpixie"}},
             {"scanline_direction", "Display", "Scanline direction",
              "Which way a shader's lines run in a game made for a monitor on its side. Vertical: as on the cabinet, whose "
              "monitor was turned on its side, so its lines run up and down the picture (the shader draws the board's "
