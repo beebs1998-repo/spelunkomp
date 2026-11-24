@@ -109,11 +109,14 @@ public:
             }
         }
         if (!m_note.empty() && m_words.find("N:") != std::string::npos) {
-            const float dot = 2;
-            const float w = recomp::text::TextWidth(m_note.c_str(), dot);
+            // (a long one, a shader's error say, in lines across the picture)
+            const float dot = 2, most = static_cast<float>(width) - 48;
+            const float w = std::min(recomp::text::TextWidth(m_note.c_str(), dot), most);
+            const int lines = recomp::text::TextLines(m_note.c_str(), dot, most);
             const float x = (width - w) / 2, y = height * 0.12f;
-            Box(static_cast<int>(x - 8), static_cast<int>(y - 6), static_cast<int>(w + 16), static_cast<int>(8 * dot + 12), 0xC0000000u);
-            canvas.Text(x, y, dot, 0, {255, 255, 255, 255}, m_note.c_str());
+            Box(static_cast<int>(x - 8), static_cast<int>(y - 6), static_cast<int>(w + 16),
+                static_cast<int>((lines - 1) * recomp::text::kLineHeight * dot + 8 * dot + 12), 0xC0000000u);
+            canvas.Text(x, y, dot, most, {255, 255, 255, 255}, m_note.c_str());
         }
         for (const TextAt &t : m_texts) {
             const float dot = 2;
