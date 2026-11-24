@@ -5,6 +5,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **Online play has its own service**, spelunkomp-online (`online/`, a copy of cps2recomp's), no longer cps2recomp's:
+  the lobby, the waiting room and the codes are Spelunkomp's alone. Play online with this version on both sides.
 - **Scanline direction has Auto**, now the default (#28): with the picture stood up on a screen wider than tall, a
   shader's lines run across it; on a screen taller than wide, or As the cabinet, they run as on the cabinet. A Horizontal
   chosen before is kept; the old default, Vertical, becomes Auto.
