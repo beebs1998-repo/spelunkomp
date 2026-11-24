@@ -27,6 +27,9 @@ public:
     void ScreenToPixels(int turn, int width, int height, std::vector<uint32_t> &out);
     // The picture's 448 x 224 pixels, 32 bits each, red in the low byte
     void ReadScreen(uint32_t *out);
+    // The same without waiting (the input lag readout's looks): started, and ended a frame on (GpuBase::StartRead)
+    void StartScreenRead(int which);
+    bool EndScreenRead(int which, uint32_t *out);
 
     uint32_t spritesDrawn = 0;
 

@@ -633,4 +633,30 @@ void Cave68k::PutBack(int which) {
     ar.Pod(system);
 }
 
+void Cave68k::SetAside(Aside &to) {
+    to.state.clear();
+    Archive ar(to.state, true);
+    Serialize(ar);
+    ar.Pod(inputs);
+    ar.Pod(system);
+    to.picture = m_picture;
+}
+
+void Cave68k::Trade(Aside &with, bool hold) {
+    m_traded.clear();
+    {
+        Archive out(m_traded, true);
+        Serialize(out);
+        out.Pod(inputs);
+        out.Pod(system);
+    }
+    Archive in(with.state, false);
+    Serialize(in);
+    in.Pod(inputs);
+    in.Pod(system);
+    with.state.swap(m_traded);
+    m_picture.swap(with.picture);
+    sound.held = oki.held = z80.held = hold;
+}
+
 } // namespace spelunk

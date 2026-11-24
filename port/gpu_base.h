@@ -64,6 +64,20 @@ protected:
     void UploadRows(SDL_GPUCopyPass *copy, SDL_GPUTexture *to, int x, int y, int width, int rows, uint32_t offset = 0);
     // Part of a texture brought back, waiting for the GPU
     void Download(SDL_GPUTexture *texture, int x, int y, int w, int h, void *out, uint32_t bytes);
+    // Part of a texture brought back without waiting (the input lag readout's looks, port/main.cpp): StartRead puts the
+    // copy on the GPU, into a buffer of its own (one of kReads), and returns at once; EndRead waits for it (by then, a
+    // frame on, long done) and gives it. False: none started there
+    static constexpr int kReads = 2;
+    void StartRead(int which, SDL_GPUTexture *texture, int x, int y, int w, int h, uint32_t bytes);
+    bool EndRead(int which, void *out, uint32_t bytes);
+
+public:
+    // (whether the GPU has done that copy: EndRead would not wait)
+    bool ReadDone(int which) {
+        return !m_readFences[which] || SDL_QueryGPUFence(m_device, m_readFences[which]);
+    }
+
+protected:
 
     // One triangle over the viewport with `pipeline`, reading `texture` (and the 16 bytes of `params`, if any, as its
     // uniforms), and the overlay over it when `overlay`: into the window, or into pixels here (`width` x `height`, 32
@@ -91,6 +105,9 @@ private:
     // frames queued without end, and SDL a transfer buffer for each
     static constexpr int kFramesInFlight = 2;
     SDL_GPUFence *m_frameFences[kFramesInFlight] = {};
+    SDL_GPUTransferBuffer *m_reads[kReads] = {};
+    SDL_GPUFence *m_readFences[kReads] = {};
+    uint32_t m_readSizes[kReads] = {};
     int m_frameAt = 0;
     uint32_t m_uploadAt = 0; // (the upload buffer's next free byte this frame; past its end: cycled at the next map)
     void EndFrame(SDL_GPUCommandBuffer *cmd);

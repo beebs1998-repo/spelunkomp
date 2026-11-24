@@ -41,6 +41,13 @@ public:
     void Rollback(int which = 0);
     void EndJournal(int which);
 
+    // The input lag readout's looks (port/hw_cv1000.h): VRAM copied whole into a texture of its own (one of two:
+    // SetVramAside), and VRAM and that one changing places (TradeVram: no copy); DropVramAside lets both go
+    static constexpr int kAsides = 2;
+    void SetVramAside(int which);
+    void TradeVram(int which);
+    void DropVramAside();
+
     // Shows the screen (the window of VRAM at the scroll position, turned `turn` quarter turns clockwise) in the
     // rectangle given, in the window's real pixels, with the overlay (GpuBase::SetOverlay) over it
     void PresentScreen(uint32_t scrollX, uint32_t scrollY, int turn, const SDL_FRect &to);
@@ -48,6 +55,9 @@ public:
     // The screen's 320 x 240 pixels as the software blitter's Picture gives them, read back (screenshots, checks, the
     // picture the menu is drawn over)
     void ReadScreen(uint32_t scrollX, uint32_t scrollY, uint32_t *out);
+    // The same without waiting (the input lag readout's looks): started, and ended a frame on (GpuBase::StartRead)
+    void StartScreenRead(int which, uint32_t scrollX, uint32_t scrollY);
+    bool EndScreenRead(int which, uint32_t *out);
 
     // The screen as PresentScreen draws it, into pixels here instead of the window (checks: the window's own path,
     // with no window shown): `width` x `height` pixels, 32 bits each, red in the low byte
@@ -61,6 +71,9 @@ private:
         int x0, y0, x1, y1;
     };
     SDL_GPUTexture *m_vram = nullptr, *m_work = nullptr, *m_backup = nullptr, *m_backup2 = nullptr;
+    SDL_GPUTexture *m_aside[kAsides] = {};
+    int m_readW[kReads] = {}, m_readH[kReads] = {};
+    std::vector<uint16_t> m_readPart;
     SDL_GPUTexture *m_draws = nullptr, *m_tiles = nullptr, *m_lists = nullptr;
     SDL_GPUGraphicsPipeline *m_listPipeline = nullptr;
     bool m_journal[kJournals] = {};

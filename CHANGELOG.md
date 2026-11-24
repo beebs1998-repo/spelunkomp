@@ -5,6 +5,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **The input lag readout no longer stutters.** It found the game's lag by running twenty unseen frames inside one
+  frame every few seconds, which made that frame late on a slower machine. It now runs one of them in each frame
+  shown, and measures less often once the number is steady. The numbers it shows are the same.
+
 ## 0.2.0-beta.1
 
 Mushihimesama Matsuri Ver 1.5 joins the collection (26 games, 31 versions), and your own shaders get one folder for every

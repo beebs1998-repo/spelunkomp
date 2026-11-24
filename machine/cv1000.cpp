@@ -285,6 +285,48 @@ void Cv1000::Drop(int which) {
     blitter.EndJournal(which);
 }
 
+void Cv1000::SetAside(Aside &to) {
+    to.ram.assign(ram.begin(), ram.begin() + static_cast<std::ptrdiff_t>(RamSize()));
+    to.small.clear();
+    Archive ar(to.small, true);
+    SerializeSmall(ar);
+    if (blitter.rasterize) {
+        to.vram = blitter.vram;
+    } else {
+        to.vram.clear();
+    }
+}
+
+void Cv1000::Trade(Aside &with, bool hold) {
+    const size_t ramSize = with.ram.size();
+    // (a page of translated code that differs between the two is compared with its translations again; the RAM
+    // changes places a part at a time, through a small buffer)
+    uint8_t part[0x1000];
+    for (size_t page = 0; page < ramSize >> 12; page++) {
+        uint8_t *here = &ram[page << 12], *there = &with.ram[page << 12];
+        if (cpu.codeMark[page] && std::memcmp(here, there, 0x1000) != 0) {
+            ++cpu.pageEpoch[page];
+        }
+        std::memcpy(part, here, 0x1000);
+        std::memcpy(here, there, 0x1000);
+        std::memcpy(there, part, 0x1000);
+    }
+    m_traded.clear();
+    {
+        Archive out(m_traded, true);
+        SerializeSmall(out);
+    }
+    Archive in(with.small, false);
+    cpu.keepEpochs = true;
+    SerializeSmall(in);
+    cpu.keepEpochs = false;
+    with.small.swap(m_traded);
+    if (!with.vram.empty()) {
+        blitter.vram.swap(with.vram);
+    }
+    sound.held = hold;
+}
+
 void Cv1000::KeepMoment(std::vector<uint8_t> &out) {
     out.clear();
     Archive ar(out, true);

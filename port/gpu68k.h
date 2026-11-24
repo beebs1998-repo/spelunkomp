@@ -29,6 +29,9 @@ public:
     void ScreenToPixels(int turn, int width, int height, std::vector<uint32_t> &out);
     // The picture's pixels (320 x 240; Mazinger Z's board 384 across), 32 bits each, red in the low byte (screenshots, the checks, the menu's background)
     void ReadScreen(uint32_t *out);
+    // The same without waiting (the input lag readout's looks): started, and ended a frame on (GpuBase::StartRead)
+    void StartScreenRead(int which);
+    bool EndScreenRead(int which, uint32_t *out);
 
     // What the last Render drew (the checks)
     uint32_t spritesDrawn = 0;

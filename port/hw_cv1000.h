@@ -304,6 +304,70 @@ struct Hw {
         }
         board->PutBack();
     }
+    // The input lag readout's looks (port/main.cpp), spread over the frames shown: the board as it is now set aside
+    // twice (LookKeep: the moment both of a look's runs start from), then, a frame at a time between the game's own,
+    // the board and one of them changing places (LookIn: VRAM too, the GPU's by its texture), a frame run unseen with
+    // the sound chip held and its picture read (LookFrame), and the two changing back (LookOut). Nothing of a look's
+    // frames is left in the game's state, nor in what is shown. (Never with run-ahead's or online play's journals open:
+    // the readout's frames come before the game's frame, and online play turns the readout off)
+    void LookKeep() {
+        board->SetAside(m_looks[0]);
+        m_lookCopy = true; // (the second copy at the first frame of the look: the two copies not both in one frame)
+        if (useGpu) {
+            gpu.SetVramAside(0);
+            gpu.SetVramAside(1);
+        }
+    }
+    void LookIn(int which) {
+        if (m_lookCopy) {
+            m_looks[1] = m_looks[0];
+            m_lookCopy = false;
+        }
+        board->Trade(m_looks[which], true);
+        if (useGpu) {
+            gpu.TradeVram(which);
+        }
+    }
+    void LookFrame(int read) {
+        AheadFrame();
+        LookRead(read);
+    }
+    // (the picture of a look's frame, read without waiting for the GPU: asked for a frame on, by then long done;
+    // `read`: one of two at once)
+    bool LookReady(int read) {
+        return !useGpu || gpu.ReadDone(read);
+    }
+    bool LookScreen(int read, uint32_t *out) {
+        if (useGpu) {
+            return gpu.EndScreenRead(read, out);
+        }
+        std::memcpy(out, m_lookScreens[read].data(), m_lookScreens[read].size() * 4);
+        return true;
+    }
+    std::vector<uint32_t> m_lookScreens[2];
+    void LookRead(int read) {
+        if (useGpu) {
+            gpu.StartScreenRead(read, board->blitter.scrollX, board->blitter.scrollY);
+        } else {
+            m_lookScreens[read].resize(static_cast<size_t>(kWidth) * kHeight);
+            board->Picture(m_lookScreens[read].data());
+        }
+    }
+    void LookOut(int which) {
+        board->Trade(m_looks[which], false);
+        if (useGpu) {
+            gpu.TradeVram(which);
+        }
+    }
+    void LookDrop() {
+        m_looks[0] = {};
+        m_looks[1] = {};
+        if (useGpu) {
+            gpu.DropVramAside();
+        }
+    }
+    Cv1000::Aside m_looks[2];
+    bool m_lookCopy = false;
     // Online play's rollback (port/netplay.h): the game kept exactly (the sound chip with it) and VRAM by the areas
     // written since, put back (and kept on from there: the same moment can be gone back to again), and a frame run
     // unseen (its draw lists still run: VRAM is the frames' sum)
