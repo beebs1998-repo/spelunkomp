@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright (C) 2026 Tommy McLeroy. Part of spelunkomp; from cps2recomp's port/touch.h.
 //
-// Controls on a touch screen (a phone): a stick, the game's buttons (game.cfg's `buttons`, up to four), and Coin,
+// Controls on a touch screen (a phone): a stick (or following the finger, below), the game's buttons (game.cfg's `buttons`, up to four), and Coin,
 // Start and the menu; player 1's, beside a gamepad's and the keys. Held sideways they go where the window has room
 // beside the picture (a standing game's picture leaves a phone most of its width), over its edges where it has not;
 // held upright, under the picture, which then goes to the top of the screen. They are shown on Android until a
@@ -9,14 +9,22 @@
 // screen is touched. With no finger on the screen for five seconds they are no longer drawn (the picture whole
 // again); a touch brings them back, and is a press of what is under it, as when they are drawn.
 // In the menu the stick moves through it and the first two buttons choose and go back.
+// Follow the finger (the Touch movement feature's first choice, as some of Cave's own phone ports played): no stick;
+// a finger put down anywhere away from the buttons moves the ship as it moves, the same distance on the screen, from
+// where the ship is (not to under the finger, which would hide it). The ship's place is the game's own, read from its
+// memory (its hit box, Game::hitBoxes), and the stick is pushed each frame toward where the finger says, let go
+// within half the ship's step of it; with no ship (a title, a choice of ship, the in-game menu) the finger is a stick
+// centred where it went down.
 // A finger is read when the game reads its controls (Feed, from the port's read), as the keys are: no frame later.
 #pragma once
 
 #include <SDL3/SDL.h>
 
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace port {
@@ -36,6 +44,21 @@ public:
     }
     // Off (the Touch controls feature): never shown, never pressed
     void Allow(bool allowed);
+    // Where player 1's ship is now, upright as the cabinet stood it (the stick's up its up), in the board's pixels;
+    // false: none in play. And a step across the window (its pixels) in those pixels
+    struct Ship {
+        std::function<bool(float &x, float &y)> where;
+        std::function<void(float dx, float dy, float &x, float &y)> fromWindow;
+    };
+    void SetShip(Ship ship) {
+        m_ship = std::move(ship);
+    }
+    // Follow the finger (on) or the stick (the Touch movement feature)
+    void Follow(bool on);
+    // (checks: a finger put down, moved and lifted, in the window's pixels, as a touch screen's would be)
+    void Scripted(SDL_EventType type, float x, float y);
+    // (checks: the last frame's steering, for a log)
+    std::string Steering() const;
     // Their picture to be given again (TakePicture), to a presenter made anew
     void Stale() {
         m_changed = true;
@@ -65,6 +88,7 @@ private:
     };
     int Hit(float x, float y) const;
     bool InStick(float x, float y) const;
+    uint32_t Steer(bool menuOpen);
     void Changed() {
         m_changed = true;
     }
@@ -81,9 +105,26 @@ private:
     std::vector<Control> m_controls;
     std::vector<std::string> m_names; // the game's buttons'
     struct Finger {
-        int control; // the stick (-1) or a control
+        int control; // the stick (-1), the finger followed (kFollowing) or a control
         int reads;   // frames it has been read in
+        float x, y;  // where it went down, and where it is now
+        float nowX, nowY;
     };
+    static constexpr int kFollowing = -2;
+    // Following the finger: the ship's place and the finger's when the two were tied (none yet: tied at the next
+    // frame with a ship), the ship's last place, and each way (across, down) the stick's push last frame (-1, 0, 1),
+    // the ship's step at a push, and the frames pushed without it moving (at the screen's edge: the finger's further
+    // way forgotten)
+    bool m_follow = false;
+    Ship m_ship;
+    struct Axis {
+        float anchor = 0, last = 0, step = 2;
+        int push = 0, stuck = 0;
+    };
+    bool m_tied = false;
+    Axis m_axis[2];
+    float m_fingerX = 0, m_fingerY = 0;
+    std::string m_steering;
     std::map<SDL_FingerID, Finger> m_fingers;            // each finger down
     std::vector<std::pair<uint32_t, int>> m_lingering;   // a short tap's: its bits, and the frames still to give them
     uint32_t m_stick = 0, m_read = 0, m_stickBefore = 0;

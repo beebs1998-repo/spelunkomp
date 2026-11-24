@@ -73,10 +73,15 @@ namespace {
 #ifdef __ANDROID__
             // (port/touch.h)
             {"touch_controls", "Controls", "Touch controls",
-             "A stick and the game's buttons on the screen, with Coin, Start and the menu: beside the picture with the phone "
+             "The game's buttons on the screen (and a stick, if Touch movement says), with Coin, Start and the menu: beside the picture with the phone "
              "held sideways, under it held upright. They go when a gamepad or a key is used, and come back at a touch; with "
              "nothing touched for a few seconds they are no longer drawn. Off: never shown.",
              0, {"On (until a gamepad is used)", "Off"}},
+            {"touch_movement", "Controls", "Touch movement",
+             "Follow the finger: no stick; put a finger down anywhere away from the buttons and the ship moves as it moves, "
+             "the same distance on the screen, from where the ship is (not to under the finger, so the ship stays in sight), "
+             "as some of Cave's own phone ports played. Stick: the stick on the screen, pushed where it is drawn.",
+             0, {"Follow the finger", "Stick"}},
 #endif
             {"practice_point", kTrainingPage, "Practice point",
              "Any place in the game kept to come back to. Set the point (the \\ key, a gamepad's right shoulder) and the game "
