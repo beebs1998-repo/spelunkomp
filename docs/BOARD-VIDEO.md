@@ -171,14 +171,19 @@ Each boss's death runs the same scene: a flash, the explosion, then black (the l
 is late 92 frames in it at every stage end, the same in every route. Timed from the flash to the black on both
 (board ±2 refreshes at each end):
 
-| scene | port refreshes (late) | board refreshes | board − port |
-|---|---|---|---|
-| stage 1 boss dies | 302 (92) | 300.1 | −1.9 |
-| stage 2 boss dies | 302 (92) | 298.1 | −3.9 |
-| stage 3 boss dies | 300 (92) | 292.1 | −7.9 |
-| stage 4 boss dies | 303 (92) | 302.1 | −0.9 |
-| last boss dies (to white) | 276 (138) | 268.1 | −7.9 |
-| stage 1 midboss dies | 82 late | 73.5 ± 1.5 late | −8.5 |
+| scene | port refreshes (late) | board refreshes | board − port | port late today (2026-11-23) |
+|---|---|---|---|---|
+| stage 1 boss dies | 302 (92) | 300.1 | −1.9 | 92 |
+| stage 2 boss dies | 302 (92) | 298.1 | −3.9 | 92 |
+| stage 3 boss dies | 300 (92) | 292.1 | −7.9 | 90 |
+| stage 4 boss dies | 303 (92) | 302.1 | −0.9 | 92 |
+| last boss dies (to white) | 276 (138) | 268.1 | −7.9 | 130 |
+| stage 1 midboss dies | 82 late | 73.5 ± 1.5 late | −8.5 | 82 |
+
+The first three columns are the port before the blitter's IRQ1 (2026-11-22). The last is today's port, which raises
+IRQ1 and so applies the game's 14 ms rule (below): on its route that rule now drops a refresh at the stage 3 boss (90,
+the board 84) and at the last boss (130 late, the board's 268.1 refreshes are 130.1 late: the same). Counted off fresh
+runs for "shmupmame in the same scenes" below.
 
 - The board is late a few frames **fewer** in every one: 4.5 on average of 92 (5%), 8.5 of 82 for the midboss
   (10%). Each one alone is within 2–3 times its error. All six on the same side is not likely by chance.
@@ -601,8 +606,11 @@ KidpandaAG's anchors (Aaron Kraten's differ by a few frames at each end):
 | 12,776-13,990 | 60 | 29 | 26 | 58 | 28 | 108 | 41 | 41 |
 | 13,990-14,593 | 15 | 23 | 0 | 0 | 0 | 0 | 0 | 0 |
 | 14,593-18,707 | 16 | 12 | 10 | 0 | 26 | 9 | 0 | 6 |
-| stage 3 | 358 | 384 | 303 | 372 | 174 | 518 | 333 | 204 |
+| stage 3 | 356 | 381 | 303 | 372 | 174 | 518 | 333 | 204 |
 
+- The board totals are the rows' sums: 356 for KidpandaAG, as over his own anchors in the table above (an earlier
+  version of this table said 358), and 381 for Aaron Kraten here, 384 over his own anchors above (his stretches end
+  a few frames apart). Elsewhere the boards are given as 356 and 384.
 - The port's own routes span 174-372 with one model; both boards fall inside. Where the boards and the port are late
   differs by route in both directions (7,090-8,587: the port's ship leaves a wave of large insects alive that both
   players kill; 9,789-10,197: both players are late, no port route but one is).
@@ -649,7 +657,7 @@ above, with the port's inputs, and counted the same way. Late frames, board agai
 | Futari Black Label, stage 1 to the boss fight, the player's route (13.9-113.1 s) | 255 | 72-148 | 47-136 | 622-1,101 (37%) |
 | of it, 53.7-61.7 s | 78 | 56-65 | 31-54 | 139-174 |
 | of it, 93.8-113.1 s | 78 | 0-12 | 0-2 | 120-420 |
-| Mushihimesama, stage 3 (two boards; three port routes) | 358, 384 | 204, 333, 518 | 33, 72, 142 | 4,092-5,701 (37.6%) |
+| Mushihimesama, stage 3 (two boards; three port routes) | 356, 384 | 204, 333, 518 | 33, 72, 142 | 4,092-5,701 (37.6%) |
 | DFK 1.5, stage 1 boss dies | 188 (377 refreshes) | 182 (364) | 180 (358) | 324 (513; 43%) |
 
 - **Scripted scenes: shmupmame is the port without the blitter's IRQ1.** In every Futari 1.5 death its late frames
@@ -659,7 +667,7 @@ above, with the port's inputs, and counted the same way. Late frames, board agai
   92 and 138); elsewhere the two are equal. DFK's boss death: 180 against the port's 182 and the board's 188 ± 10,
   the same within the board's error.
 - **In play, shmupmame slows down less than the port and further from the boards**, in every scene measured.
-  Mushihimesama's stage 3: 33-142 on the three routes against the boards' 358 and 384 (the port 204-518; its left
+  Mushihimesama's stage 3: 33-142 on the three routes against the boards' 356 and 384 (the port 204-518; its left
   route, 333, is the nearest of all). Black Label's replayed stage 1: 47-136 against the board's 255 (the port
   72-148); in the two stretches the port already falls short in, shmupmame falls shorter. DFK's stage 1 (game frame
   4,000 to the boss's death): 531 against the port's 613 (the board's ~703 counts from another start, "A second
