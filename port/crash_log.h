@@ -13,5 +13,8 @@
 namespace port {
 
 void KeepLogOnCrash();
+// A crash on purpose, for checking the crash report on a release build: with SPELUNKOMP_TEST_CRASH_AT_FRAME=<n> set,
+// the game writes through a null pointer after its frame n. Nothing happens unless it is set (docs/RELEASING.md).
+void TestCrashAt(unsigned long long frame);
 
 } // namespace port

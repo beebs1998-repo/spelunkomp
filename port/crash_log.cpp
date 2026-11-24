@@ -5,6 +5,7 @@
 #include "crash_log.h"
 
 #include <cstdio>
+#include <cstdlib>
 
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
@@ -84,6 +85,17 @@ void KeepLogOnCrash() {
     setvbuf(stdout, nullptr, _IOLBF, 0);
     setvbuf(stderr, nullptr, _IONBF, 0);
 #endif
+}
+
+void TestCrashAt(unsigned long long frame) {
+    static const unsigned long long at = [] {
+        const char *v = std::getenv("SPELUNKOMP_TEST_CRASH_AT_FRAME");
+        return v && *v ? std::strtoull(v, nullptr, 0) : 0ull;
+    }();
+    if (at && frame == at) {
+        fprintf(stderr, "SPELUNKOMP_TEST_CRASH_AT_FRAME: crashing on purpose after frame %llu\n", frame);
+        *static_cast<volatile int *>(nullptr) = 1;
+    }
 }
 
 } // namespace port
