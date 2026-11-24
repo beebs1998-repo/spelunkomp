@@ -63,16 +63,21 @@ bool LoadSet(const std::string &where, const GameConfig &config, Cv1000 &board, 
     };
     const std::string set = value("rom_set");
     // (the place itself, or the set's folder or zip inside it)
-    std::vector<std::string> places = {where + "/" + set, where + "/" + set + ".zip", where};
+    const std::vector<std::string> places = Places(where, set, value("rom_parent"));
     board.boardD = value("board") == "d";
     const size_t programSize = board.boardD ? 0x400000 : 0x200000;
 
-    std::string name, missing;
+    std::string name, missing, first;
     uint32_t crc = 0;
     for (const std::string &place : places) {
         Source source;
         if (!source.Open(place)) {
             continue;
+        }
+        source.OpenParents(place, where, value("rom_parent"));
+        // (the message tells of the first place that has some of the set: later ones are tried in case)
+        if (first.empty()) {
+            first = missing;
         }
         missing.clear();
         std::vector<uint8_t> data;
@@ -108,7 +113,8 @@ bool LoadSet(const std::string &where, const GameConfig &config, Cv1000 &board, 
             return true;
         }
     }
-    error = missing.empty() ? "no " + set + " set in " + where : "the " + set + " set in " + where + " has no " + missing + " with the checksum expected";
+    missing = first.empty() ? missing : first;
+    error = missing.empty() ? "no " + set + " set in " + where : "the " + set + " set in " + where + " has no " + missing + " with the checksum expected" + ParentsNeeded(value("rom_parent"));
     return false;
 }
 
@@ -120,12 +126,17 @@ bool LoadSet(const std::string &where, const GameConfig &config, Cave68k &board,
         return it == config.end() ? std::string() : it->second;
     };
     const std::string set = value("rom_set");
-    const std::vector<std::string> places = {where + "/" + set, where + "/" + set + ".zip", where};
-    std::string missing;
+    const std::vector<std::string> places = Places(where, set, value("rom_parent"));
+    std::string missing, first;
     for (const std::string &place : places) {
         Source source;
         if (!source.Open(place)) {
             continue;
+        }
+        source.OpenParents(place, where, value("rom_parent"));
+        // (the message tells of the first place that has some of the set: later ones are tried in case)
+        if (first.empty()) {
+            first = missing;
         }
         missing.clear();
         // Every file a key names, one after another
@@ -352,7 +363,8 @@ bool LoadSet(const std::string &where, const GameConfig &config, Cave68k &board,
         board.Reset();
         return true;
     }
-    error = missing.empty() ? "no " + set + " set in " + where : "the " + set + " set in " + where + " has no " + missing + " with the checksum expected";
+    missing = first.empty() ? missing : first;
+    error = missing.empty() ? "no " + set + " set in " + where : "the " + set + " set in " + where + " has no " + missing + " with the checksum expected" + ParentsNeeded(value("rom_parent"));
     return false;
 }
 

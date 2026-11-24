@@ -15,6 +15,7 @@
 #include <cctype>
 #include <deque>
 #include <filesystem>
+#include <sstream>
 #include <string>
 #include <system_error>
 #include <vector>
@@ -28,20 +29,31 @@ launcher::Description describe_game(const char *config) {
     // (the words are kept for as long as the launcher runs)
     static std::deque<std::string> words;
     auto keep = [](std::string s) { return words.emplace_back(std::move(s)).c_str(); };
-    const std::string discWhere;
-    const std::string set = get("rom_set"), name = get("rom_name");
+    const std::string set = get("rom_set"), name = get("rom_name"), parents = get("rom_parent");
+    // (a split set: its parents' zips beside it, which the game reads too)
+    std::string beside;
+    {
+        std::istringstream names(parents);
+        std::string one, list;
+        while (names >> one) {
+            list += (list.empty() ? "" : " and ") + one + ".zip";
+        }
+        if (!list.empty()) {
+            beside = ", with " + list + " beside it if it is a split set";
+        }
+    }
     launcher::Description d;
     d.original = "in the arcade";
     d.file_heading = "ROM SET";
 #ifdef __ANDROID__
     // (Android: the set is copied into the app's folder; the screen's controls have a Menu button, and Back opens it)
-    d.file_intro = keep("Choose your own copy of the game: the arcade ROM set " + set + ".zip (" + name + ")" + discWhere +
+    d.file_intro = keep("Choose your own copy of the game: the arcade ROM set " + set + ".zip (" + name + ")" + beside +
                         ". Only this version works. It is copied into the app's folder.\n\nWhile playing, Back or the screen's "
                         "Menu button, or Guide (or Start and Select together) on a gamepad, opens the in-game menu.");
     d.file_empty = keep("None chosen. Choose " + set + ".zip.");
 #else
     d.file_intro = keep("Choose your own copy of the game: the arcade ROM set " + set + ".zip (" + name +
-                        ")" + discWhere +
+                        ")" + beside +
                         ". Only this version works. The files stay where they are: the launcher only reads them.");
     d.file_empty = keep("None chosen. Drop " + set + ".zip here, or choose it.");
 #endif
@@ -49,7 +61,7 @@ launcher::Description describe_game(const char *config) {
     d.file_filter = {"ROM set (zip)", "zip"};
     d.file_key = "rom";
     // The set's zip (or a folder holding its files). Only ever read.
-    d.check = [config, set, name, discWhere](const std::string &path) {
+    d.check = [config, set, name, beside](const std::string &path) {
         launcher::FileCheck check;
         std::error_code error;
         if (path.empty() || !std::filesystem::exists(path, error)) {
@@ -62,12 +74,21 @@ launcher::Description describe_game(const char *config) {
             check.message = name;
         } else {
             check.message = "Not usable: " + message + ". This port needs the set " + set + " (" + name +
-                            ")" + discWhere + ". Other versions of the game will not work.";
+                            ")" + beside + ". Other versions of the game will not work.";
         }
         return check;
     };
     d.check_on_thread = true; // (reading and checking the set takes a moment)
-    d.candidates = [set](const std::filesystem::path &folder) { return std::vector<std::filesystem::path>{folder / (set + ".zip"), folder / set}; };
+    // (the set's zip or folder; a merged set: the clone's files in its parent's zip)
+    d.candidates = [set, parents](const std::filesystem::path &folder) {
+        std::vector<std::filesystem::path> places = {folder / (set + ".zip"), folder / set};
+        std::istringstream names(parents);
+        std::string one;
+        while (names >> one) {
+            places.push_back(folder / (one + ".zip"));
+        }
+        return places;
+    };
     d.arguments = [](const launcher::Launch &launch) {
         std::vector<std::string> args = {"--roms", launch.file, "--settings", (launch.folder / "settings.ini").string(),
                                          "--saves", (launch.folder / "saves").string()};

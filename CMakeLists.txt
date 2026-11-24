@@ -137,6 +137,10 @@ endif()
 
 # The ARM7 interpreter's self-test (tests/arm7_test.cpp; tools/check_arm.sh runs it): built only when asked for
 add_executable(arm7-test EXCLUDE_FROM_ALL tests/arm7_test.cpp machine/arm7.cpp)
+# A set checked as the launcher checks it (tests/romset_test.cpp; tools/check_split_sets.sh runs it): built only when
+# asked for
+add_executable(romset-test EXCLUDE_FROM_ALL tests/romset_test.cpp)
+target_link_libraries(romset-test spelunk_machine spelunk_gen spelunk_game_config)
 
 # The game's own sources (its features and what they do)
 file(GLOB GAME_SOURCES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/games/${GAME}/src/*.cpp)

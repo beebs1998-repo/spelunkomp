@@ -63,6 +63,9 @@ new CRT shader.
   often takes Guide on a Steam Deck), and in an online match they ask Leave the match?. Esc and F1 are unchanged.
 - **CRT Newpixie** on the Shader setting: RetroArch's newpixie-crt, a light CRT look with chromatic aberration,
   ghosting, a little curvature and scanlines.
+- **MAME's split and merged sets** (#29). A clone's split zip (`ddpdfk10.zip`, holding only the files that differ)
+  is read with its parent's beside it (`ddpdfk.zip`; Dai-Ou-Jou's `ddp3.zip`, Bee Storm's `pgm.zip`), and a merged
+  parent zip holding a clone's files is found for the clone. A split set missing its parent says which zip it needs.
 
 ## 0.1.0-beta.1
 
