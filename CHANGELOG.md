@@ -10,6 +10,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
   the finger, which would hide it), as some of Cave's own phone ports played. The ship's place is read from the
   game's own memory and the stick pushed toward where the finger says each frame, let go within half the ship's
   step. On by default; the on-screen stick is still there (Controls page: Touch movement, Stick).
+- **Scoring readouts** (Training mode): a game's hidden counters written down the left of the picture, read from its
+  memory. The first: Muchi Muchi Pork!'s lard meter as a number. More games' to come (docs/TRAINING.md).
+- **Lard meter kept full** (Muchi Muchi Pork!) and **Gems kept full** (Espgaluda: 500, Kakusei for as long as you want
+  it), on the Training mode page.
 - **Scanline direction has Auto**, now the default (#28): with the picture stood up on a screen wider than tall, a
   shader's lines run across it; on a screen taller than wide, or As the cabinet, they run as on the cabinet. A Horizontal
   chosen before is kept; the old default, Vertical, becomes Auto.

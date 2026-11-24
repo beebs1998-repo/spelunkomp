@@ -2718,6 +2718,16 @@ int main(int argc, char **argv) {
             if (hitBoxesAt < features.size() && features[hitBoxesAt] && ThisGame().hitBoxes) {
                 MarkHitBoxes(hud, *board, turnNow(), features);
             }
+            // (the scoring readouts: the game's hidden counters, down the left side, under the tools' notes)
+            if (const size_t at = FeatureIndex("readouts"); at < features.size() && features[at]) {
+                float y = 0.10f;
+                for (const Readout &r : ThisGame().readouts) {
+                    if (const std::string value = r.value(*board); !value.empty()) {
+                        hud.Text(0.015f, y, -1, std::string(r.name) + " " + value, 0xFFFFFFFFu);
+                        y += 0.045f;
+                    }
+                }
+            }
             // (an alternative mode's readout: Dodge training's pattern and hits, over the boss's life bar, clear of the tools' notes)
             if (ThisGame().readout) {
                 if (const std::string words = ThisGame().readout(*board); !words.empty()) {
