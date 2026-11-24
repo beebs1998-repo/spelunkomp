@@ -94,7 +94,11 @@ an Ibara PCB, runs on the port's board as an ibara set (`tools/cv1kbench.sh ZIP`
 this repository): the method, and where each difference came from, are in [plans/BENCHMARK.md](plans/BENCHMARK.md).
 The same benchmark on shmupmame 5.4 (its cache model, no per-game settings), MAME 0.275 and current MAME, and under
 the CPU settings players post per game, is there too ([Against shmupmame](plans/BENCHMARK.md#against-shmupmame-and-mame-2026-11-23)):
-shmupmame's mean error is 27.7% (22-33% with those settings) against this model's 0.8%.
+shmupmame's mean error is 27.7% (22-33% with those settings) against this model's 0.7%.
+<p align="center"><img src="screenshots/cv1kbench-results.png" width="45%" alt="The results screen of buffi's CV1000 benchmark as the port draws it, Slowdown as the board on: RAMP 8X8 SPR 4850, RAMP 8X8 STILL 9085, RAMP 32X32 SPR 1170, RAMP CPU LOGIC 1512, RAMP GAME 1694, BLIT LATENCY 5 µs, 8X8 SPRITES 603, 32X32 SPRITES 77, SCREEN COPY 90.7, ALPHA 32X32 77, UPLOAD TO VRAM 5653, GAME FRAME 171.4, BLITTER PAIN 20.0, CPU INTEGER 3656, CPU DIVIDE 1190, CPU MEMORY 19.9, CPU CACHE HIT 17.0, CPU FLUSH 885, CPU LIST BUILD 355, CPU QUICKSORT 149"><br>
+<em>buffi's CV1000 benchmark running in Spelunkomp with Slowdown as the board on; compare the board column below
+(the benchmark and the board's results are buffi's).</em></p>
+
 It times everything with the SH-3's timer, so it measures in the board's own clocks. Rates (higher is faster) and
 times; the error is this model's against the board, + where the port is faster:
 

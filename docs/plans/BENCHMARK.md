@@ -1,6 +1,6 @@
 # The CV1000 timing against a board: buffi's benchmark
 
-Measured 2026-11-19, before the model was fitted to it ([below](#done-2026-11-20) for after). [docs/SLOWDOWN.md](../SLOWDOWN.md) says what the port models; this is
+Current results: [The results now (2026-11-24)](#the-results-now-2026-11-24). First measured 2026-11-19, before the model was fitted to it ([below](#done-2026-11-20) for what changed). [docs/SLOWDOWN.md](../SLOWDOWN.md) says what the port models; this is
 how far that is from a real board, measured with buffi's CV1000 benchmark (homebrew, October 2026), which buffi ran on
 a real Ibara PCB, on the MiSTer core (ikacore_CV1k) and in MAME:
 [Benchmarking CV1000: PCB vs MAME and MiSTer](https://buffis.com/arcade/benchmarking-cv1000-pcb-vs-mame-and-mister/).
@@ -28,7 +28,41 @@ The MAME columns below are buffi's own numbers (from his article). MAME git 8fd3
   timer; the CPU tests time each kernel on its own. Cycles below are the CPU's (102.4 MHz) and come from those logs,
   or from the rates (102.4 MHz / rate) where a kernel is one loop.
 
-## The results
+## The results now (2026-11-24)
+
+The port as it ships, with Slowdown as the board on, from `tools/cv1kbench.sh` on current code, after the fitting
+and fixes under [Done (2026-11-20)](#done-2026-11-20) and the sections after it. The error is the port's against the
+PCB, + where the port is faster. `first run` is the port's column from the 2026-11-19 table below, kept to show what
+the fitting changed; MiSTer and MAME are buffi's.
+
+| test | PCB | port now | now vs PCB | port, first run | MiSTer | MAME |
+|---|---|---|---|---|---|---|
+| RAMP 8X8 SPR (@60) | 4800 | 4850 | +1.0% | 5700 | 5650 | 4875 |
+| RAMP 8X8 STILL (@60) | 9085 | 9085 | 0 | 9123 | 9085 | 9123 |
+| RAMP 32X32 SPR (@60) | 1170 | 1170 | 0 | 1175 | 1170 | 1175 |
+| RAMP CPU LOGIC (@60) | 1503 | 1512 | +0.6% | 2346 | 1769 | 2135 |
+| RAMP GAME (@60) | 1694 | 1694 | 0 | 1701 | 1715 | 1701 |
+| BLIT LATENCY (µs avg) | 5 | 5 | 0 | 4 (4.45) | 4 | 5 |
+| 8X8 SPRITES (kdraw/s) | 603 | 603 | 0 | 605 | 604 | 604 |
+| 32X32 SPRITES (kdraw/s) | 77 | 77 | 0 | 77 | 77 | 77 |
+| SCREEN COPY (Mpix/s) | 90.6 | 90.7 | +0.1% | 91.0 | 90.6 | 91.0 |
+| ALPHA 32X32 (kdraw/s) | 77 | 77 | 0 | 77 | 77 | 77 |
+| UPLOAD TO VRAM (kpix/s) | 5632 | 5653 | +0.4% | 7841 | 8198 | 5665 |
+| GAME FRAME (fps) | 171.3 | 171.4 | +0.1% | 171.9 | 171.2 | 171.8 |
+| BLITTER PAIN (ms/round) | 19.7 | 20.0 | -1.5% (slower) | 19.9 | 19.7 | 19.9 |
+| CPU INTEGER (kiter/s) | 3656 | 3656 | 0 | 4653 | 3937 | 4653 |
+| CPU DIVIDE (kdiv/s) | 1176 | 1190 | +1.2% | 1365 | 1256 | 1304 |
+| CPU MEMORY (MB/s) | 20.1 | 19.9 | -1.0% | 17.6 | 19.7 | 14.7 |
+| CPU CACHE HIT (Mload/s) | 17.0 | 17.0 | 0 | 20.4 | 20.4 | 17.0 |
+| CPU FLUSH (µs/flush) | 886 | 885 | +0.1% (faster) | 743 | 734 | 604 |
+| CPU LIST BUILD (kdraw/s) | 352 | 355 | +0.9% | 433 | 431 | 368 |
+| CPU QUICKSORT (sorts/s) | 140 | 149 | **+6.4%** | 150 | 155 | 142 |
+
+Within 1.5% of the PCB on 19 of the 20 (BLITTER PAIN 1.52% slower), the same as the PCB on 9; mean error 0.7%
+(MiSTer's 9.5%, MAME's 7.5%). CPU QUICKSORT's +6.4% is looked at under
+[CPU QUICKSORT, looked at again](#cpu-quicksort-looked-at-again-2026-11-21).
+
+## The first results (2026-11-19, before the fitting)
 
 `on` is the port with Slowdown as the board, `off` without; the error is `on` against the PCB. For the rows in time
 (µs, ms) a smaller number is faster.
