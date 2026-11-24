@@ -160,6 +160,9 @@ public:
         cycles += memoryTiming.Access(timingPaths, at, a, bytes, write, inSlot, cycles,
                                       [this](uint32 p) -> uint16 { return TimingCode(p); });
 #endif
+        if (at == poll.slot) [[unlikely]] {
+            poll.read = cycles; // (the poll loop's read: when it is made, after what the model charged)
+        }
     }
     // A taken branch (or any instruction that set the PC) at `branch`, its delay slot run and counted: PC is where it
     // went. Translated code calls it at the same point
@@ -172,6 +175,35 @@ public:
 #else
         cycles += memoryTiming.Taken(timingPaths, branch, target, cycles, [this](uint32 p) -> uint16 { return TimingCode(p); });
 #endif
+        if (branch == target + 4) [[unlikely]] {
+            PollTurn(target);
+        }
+    }
+    // The games' wait for a timer (docs/SLOWDOWN.md, "The poll loop"): a loop of four instructions, `sub Rm,Rn;
+    // cmp/hi Rm,Rn; bt/s back; mov.l @Rm,Rn` reading a timer's TCNT in the delay slot, that turns until enough of it has
+    // counted. Most of a busy frame's timing events are its turns, each the same as the one before. Once two turns in a
+    // row have cost the same and moved the model's state the same way (every field the same, or later by the turn's
+    // cycles), the turns after them, up to the loop's end or the block's stop, are worked out here instead of run: the
+    // registers as the instructions leave them, TCNT as it reads at each turn's read, the model's state moved on by
+    // the same steps. Native mode only (the interpreter's blocks mode, which tools/check.sh compares with, runs every
+    // turn). The shadow build (tools/shadow/) runs every skip both ways and compares them
+    struct PollLoop {
+        uint32 head = 0, slot = 0xFFFFFFFFu; // (the loop's first instruction and its delay slot; none: 0, and no slot)
+        uint8 n0 = 0, m0 = 0, n1 = 0, m1 = 0, n3 = 0, m3 = 0; // (sub Rm0,Rn0; cmp/hi Rm1,Rn1; mov.l @Rm3,Rn3)
+        int turns = 0;                // (turns seen in a row, each ending where the one before did)
+        uint64 end = 0, read = 0;     // (the last turn's end, and this turn's read)
+        uint64 cost = 0, readAt = 0;  // (the last turn's cycles, and its read's cycles into the turn)
+        uint32 moved = 0;             // (the model's time fields the last turn moved, by its cycles: kPoll... bits)
+        Sh3Timing before;             // (the model at the last turn's end)
+    } poll;
+    bool pollSkip = true; // (SPELUNK_NO_POLL_SKIP: every turn run)
+    bool pollInside = false; // (the shadow build's turns run the slow way: no skip within them)
+    uint64 pollSkips = 0, pollTurnsSkipped = 0;
+    void PollTurn(uint32 target);
+    void PollForget() {
+        poll.head = 0;
+        poll.slot = 0xFFFFFFFFu;
+        poll.turns = 0;
     }
 #ifdef SPELUNK_SHADOW_TIMING
     // The shadow build (tools/shadow/): the reference model (machine/bus_timing_ref.h) run beside the one in use, at
@@ -179,6 +211,7 @@ public:
     ref::Sh3Timing refTiming;
     ref::Sh3Paths refPaths;
     uint64 shadowEvents = 0;
+    uint64 shadowSkips = 0, shadowSkipTurns = 0; // (poll-loop skips checked against the turns run, PollTurn)
     struct ShadowRecord {
         char kind;
         uint32 insn, address, bytes, got, want;

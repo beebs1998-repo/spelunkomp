@@ -500,6 +500,37 @@ frame of the port slower than 43 ms in the ten-second spans its log gives. While
 47 frames a second for some 40 seconds of the stage's start with the feature on, and not without. Not tried on a
 phone: one slower than that emulator may not keep up in the busiest scenes, which is what turning it off is for.
 
+### The poll loop (machine/sh3.cpp's PollTurn)
+
+Most of a busy frame's timing events are not the game's work but its wait: four instructions,
+
+    loop: sub   r1,r0
+          cmp/hi r0,r4
+          bt/s  loop
+          mov.l @r2,r0     ; (the delay slot)
+
+turning until a word (a counter in main RAM that an interrupt moves, or a timer's TCNT) has gone far enough. Every
+turn is an access and a branch taken for the model, and on Muchi Muchi Pork!'s stage 1 boss its turns are about
+four fifths of the events: 165,000 turns a frame. Once two turns in a row have cost the same cycles, made their read
+at the same point, and moved the model's state the same way, the turns after them are worked out instead of run, up to
+where the loop ends (the turn whose test fails is run as the board runs it) or the block would stop (an event due, an
+interrupt ready). The model's state is checked field by field:
+- every field the same each turn, or later by exactly the turn's cycles;
+- a time that stays the same must be in the past, so that it is never read;
+- the cache's ways and their use order unchanged.
+
+Each skipped turn takes the registers as the four instructions leave them. Its read is main RAM's word, which nothing
+writes while the loop turns, or TCNT as it reads at that turn's cycle: the timers are brought up to it on a copy, and
+brought up once at the end as the last read left them. Only in native mode: the interpreter's blocks mode, which
+tools/check.sh compares the translations with, runs every turn, so check.sh compares the skip with the turns run too.
+`SPELUNK_NO_POLL_SKIP=1` runs every turn.
+
+The shadow build (tools/shadow/) runs every skip both ways. It works the turns out, puts everything back, runs the
+same turns through the interpreter with both models at every event, and compares registers, cycles, T, the timers and
+the model's every field. The first difference stops the run; the run goes on from the turns run. Muchi Muchi Pork!'s
+boss state, 600 frames: 14,878 skips of 99 million turns, every one the same, and the per-frame hash log identical to
+origin/main's.
+
 ### The shadow check (tools/shadow/)
 
 The model is made faster only where the result stays the same: every cycle it gives and every field of its state, at
