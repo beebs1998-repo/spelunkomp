@@ -5,6 +5,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **The in-game menu answers a finger** on Android, whether the touch controls are on or off: tap a row to choose
+  it, slide up or down to move through the rows. With the touch controls turned off and no gamepad, there was no
+  way back to them; now a tap on Touch controls turns them on again. The touch controls' own buttons still work
+  as before while the menu is open.
 - **Online play has its own service**, spelunkomp-online (`online/`, a copy of cps2recomp's), no longer cps2recomp's:
   the lobby, the waiting room and the codes are Spelunkomp's alone. Play online with this version on both sides.
 - **Follow the finger** on Android, the touch controls' new way to move: put a finger down anywhere away from the

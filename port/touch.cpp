@@ -291,6 +291,9 @@ bool TouchControls::Event(const SDL_Event &event) {
         return false;
     default: return false;
     }
+    if (before && OnScreen(event.tfinger) && before(event, event.tfinger.x * m_width, event.tfinger.y * m_height)) {
+        return true;
+    }
     if (!m_allowed || !OnScreen(event.tfinger)) {
         return true;
     }

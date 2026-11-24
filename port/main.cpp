@@ -416,7 +416,7 @@ int main(int argc, char **argv) {
             d.hold = hold;
             drags.push_back(d);
         } else if (a == "--menu" && i + 1 < argc) {
-            const std::string v = argv[++i]; // FRAME:KEYS:shot.png (u d l r c b: the menu's buttons), for checks
+            const std::string v = argv[++i]; // FRAME:KEYS:shot.png (u d l r c b: the menu's buttons; 0-9 a finger's tap at that tenth of the way down), for checks
             const size_t c1 = v.find(':'), c2 = v.find(':', c1 + 1);
             menuTests.push_back({strtoull(v.substr(0, c1).c_str(), nullptr, 0), v.substr(c1 + 1, c2 - c1 - 1), v.substr(c2 + 1)});
         } else if (a == "--rollback-test") {
@@ -2071,6 +2071,53 @@ int main(int argc, char **argv) {
     uint64_t fpsFrom = SDL_GetTicksNS();
     unsigned fpsFrames = 0;
     double fpsRate = 0;
+    // The open menu answers a finger itself, the touch controls on or off (with them off and no gamepad, it is the only
+    // way back to them): a finger put down on it chooses the row under it, lifted where it went down does what a click
+    // does there, and slid up or down moves through the rows a row at a time. A finger on one of the touch controls'
+    // buttons is still theirs (Menu closes it, the first two choose and go back). What it chose is done in the loop,
+    // not where the finger was read (which can be in the game's read of its controls)
+    std::vector<recomp::Menu::Chosen> menuTaps;
+    struct MenuFinger {
+        SDL_FingerID id = 0;
+        bool down = false, slid = false;
+        float x0 = 0, y0 = 0, stepY = 0;
+    } menuFinger;
+    touch.before = [&](const SDL_Event &e, float x, float y) {
+        const recomp::sdl::MenuPlace at = menuPlace();
+        auto tell = [&](recomp::MenuMouse what) {
+            if (at.w > 0 && at.h > 0) {
+                menuTaps.push_back(menu.Mouse(what, (x - at.x) * at.width / at.w, (y - at.y) * at.height / at.h));
+            }
+        };
+        if (e.type == SDL_EVENT_FINGER_DOWN) {
+            if (net || !menu.IsOpen() || touch.OnButton(x, y)) {
+                return false;
+            }
+            menuFinger = {e.tfinger.fingerID, true, false, x, y, y};
+            tell(recomp::MenuMouse::Move);
+            return true;
+        }
+        if (!menuFinger.down || e.tfinger.fingerID != menuFinger.id) {
+            return false;
+        }
+        if (e.type == SDL_EVENT_FINGER_MOTION) {
+            // (a row's worth of sliding, about a twentieth of the menu's height, is a row)
+            const float row = std::max(1.0f, at.h / 20);
+            menuFinger.slid = menuFinger.slid || std::hypot(x - menuFinger.x0, y - menuFinger.y0) > row * 0.5f;
+            for (; menu.IsOpen() && menuFinger.slid && y - menuFinger.stepY <= -row; menuFinger.stepY -= row) {
+                tell(recomp::MenuMouse::WheelDown);
+            }
+            for (; menu.IsOpen() && menuFinger.slid && y - menuFinger.stepY >= row; menuFinger.stepY += row) {
+                tell(recomp::MenuMouse::WheelUp);
+            }
+            return true;
+        }
+        menuFinger.down = false;
+        if (e.type == SDL_EVENT_FINGER_UP && !menuFinger.slid && menu.IsOpen()) {
+            tell(recomp::MenuMouse::Click);
+        }
+        return true;
+    };
     while (running) {
         const uint64_t workFrom = SDL_GetTicksNS();
         SDL_Event e;
@@ -2159,6 +2206,11 @@ int main(int argc, char **argv) {
                 lag.pressedAt = e.common.timestamp; // (the input lag readout: the port's part)
             }
         }
+        // (the menu's taps, taken with the fingers: menuFinger)
+        for (const recomp::Menu::Chosen &chosen : menuTaps) {
+            handleChosen(chosen);
+        }
+        menuTaps.clear();
         // The menu's buttons (not in an online match's screens, which have the events above): Start and Select together
         // open it and close it; in it, what is newly pressed, and the arrows again and again while held
         if (!net) {
@@ -2865,6 +2917,25 @@ int main(int argc, char **argv) {
             }
             openMenu();
             for (char k : test.keys) {
+                if (k >= '0' && k <= '9') {
+                    // (a finger's tap, half way across and at that tenth of the way down the window: the menu's taps)
+                    int ow = 0, oh = 0;
+                    SDL_GetWindowSizeInPixels(window, &ow, &oh);
+                    shown = frozen;
+                    menu.Draw(shown.data(), frozenW, frozenH);
+                    touch.Layout(ow, oh, place());
+                    const float y = (static_cast<float>(k - '0') + 0.5f) / 10 * static_cast<float>(oh);
+                    touch.Scripted(SDL_EVENT_FINGER_DOWN, ow / 2.0f, y);
+                    touch.Scripted(SDL_EVENT_FINGER_UP, ow / 2.0f, y);
+                    for (const recomp::Menu::Chosen &chosen : menuTaps) {
+                        handleChosen(chosen);
+                    }
+                    menuTaps.clear();
+                    if (!menu.IsOpen()) {
+                        break;
+                    }
+                    continue;
+                }
                 const unsigned b = k == 'u' ? recomp::kMenuUp : k == 'd' ? recomp::kMenuDown : k == 'l' ? recomp::kMenuLeft
                                  : k == 'r' ? recomp::kMenuRight : k == 'c' ? recomp::kMenuConfirm : recomp::kMenuBack;
                 shown = frozen;
