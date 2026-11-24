@@ -24,12 +24,17 @@ bool LoadSet(const std::string &where, const GameConfig &config, Pgm &board, std
         return v.empty() ? otherwise : static_cast<uint32_t>(strtoul(v.c_str(), nullptr, 16));
     };
     const std::string set = value("rom_set");
-    const std::vector<std::string> places = {where + "/" + set, where + "/" + set + ".zip", where};
-    std::string missing;
+    const std::vector<std::string> places = Places(where, set, value("rom_parent"));
+    std::string missing, first;
     for (const std::string &place : places) {
         Source source;
         if (!source.Open(place)) {
             continue;
+        }
+        source.OpenParents(place, where, value("rom_parent"));
+        // (the message tells of the first place that has some of the set: later ones are tried in case)
+        if (first.empty()) {
+            first = missing;
         }
         missing.clear();
         // A region: `key` lists name:crc@offset (hex), each file put at its offset
@@ -147,7 +152,8 @@ bool LoadSet(const std::string &where, const GameConfig &config, Pgm &board, std
         board.Reset();
         return true;
     }
-    error = missing.empty() ? "no " + set + " set in " + where : "the " + set + " set in " + where + " has no " + missing + " with the checksum expected";
+    missing = first.empty() ? missing : first;
+    error = missing.empty() ? "no " + set + " set in " + where : "the " + set + " set in " + where + " has no " + missing + " with the checksum expected" + ParentsNeeded(value("rom_parent"));
     return false;
 }
 
