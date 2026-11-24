@@ -37,8 +37,8 @@ would stall the game and rewind could not exist. So:
   from the GPU when a moment is kept, in one transfer, and only those are sent back when one is gone back to.
 - **The practice point** holds all of RAM and all of VRAM once (brought when it is set: about 11 ms), and from then
   notes the blocks written; going back sends those blocks only (about 3 ms).
-- **The timeline** keeps a moment every 6 frames (a tenth of a second), about 1 MB each in play, up to 384 MB: 30 to
-  40 seconds. Keeping one takes about 1 ms and is done after the frame is shown.
+- **The timeline** keeps a moment every 6 frames (a tenth of a second), about 1 MB each in play, up to 384 MB in
+  all, as allocated, its own copy of RAM and VRAM counted: about 30 seconds. Keeping one takes about 1 ms and is done after the frame is shown.
 
 The sound chip's state is part of a moment, so the music is where it was.
 

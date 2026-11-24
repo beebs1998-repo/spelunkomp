@@ -7,7 +7,9 @@ Input lag is never acceptable in these ports. The rule, and how it is kept:
   the host's frame, so the newest state the host has is what the game gets.
 - **Nothing queued on the way to the screen.** The presenter shows a frame as soon as the game has finished it; no
   frames wait in a queue (SDL_GPU with at most one frame in flight, immediate or mailbox presentation where the
-  display allows, VRR where it has it). The one exception is chosen: full screen at an arcade monitor's mode (the
+  display allows, VRR where it has it). Each present waits for the GPU to have finished the frame two before it,
+  whatever the presentation (port/gpu_base.h): when the GPU keeps up that frame is long done and nothing waits; when
+  it does not, the game is held back instead of frames piling up. The one exception is chosen: full screen at an arcade monitor's mode (the
   Arcade monitor page) is synced to the screen, each picture waiting for its refresh so that none is shown twice or
   torn; there the frame delay (Windows, where the system says when the screen refreshes) holds each frame back until
   just before its refresh, so its controls are read late and the wait is taken out of the lag again, as GroovyMAME's

@@ -116,16 +116,22 @@ void Timeline::Keep(Cv1000 &board, VramAccess &vram) {
     }
     Moment m;
     board.KeepMoment(m.small);
+    m.small.shrink_to_fit();
     for (size_t page = 0; page < ramSize >> 12; page++) {
-        uint8_t *then = &m_ram[page << 12];
-        const uint8_t *now = &board.ram[page << 12];
-        if (std::memcmp(then, now, 0x1000) != 0) {
+        if (std::memcmp(&m_ram[page << 12], &board.ram[page << 12], 0x1000) != 0) {
             m.pages.push_back(static_cast<uint32_t>(page));
-            m.pagesBefore.insert(m.pagesBefore.end(), then, then + 0x1000);
-            std::memcpy(then, now, 0x1000);
         }
     }
+    m.pages.shrink_to_fit();
+    // (the pages as they were, in one allocation of just their size)
+    m.pagesBefore.resize(m.pages.size() << 12);
+    for (size_t i = 0; i < m.pages.size(); i++) {
+        uint8_t *then = &m_ram[static_cast<size_t>(m.pages[i]) << 12];
+        std::memcpy(&m.pagesBefore[i << 12], then, 0x1000);
+        std::memcpy(then, &board.ram[static_cast<size_t>(m.pages[i]) << 12], 0x1000);
+    }
     m.blocks = m_written.List();
+    m.blocks.shrink_to_fit();
     if (!m.blocks.empty()) {
         m_areas.clear();
         for (uint32_t b : m.blocks) {
@@ -143,12 +149,17 @@ void Timeline::Keep(Cv1000 &board, VramAccess &vram) {
     m_frames = 0;
     m_bytes += m.Bytes();
     m_moments.push_back(std::move(m));
-    while (m_moments.size() > 1 && (m_moments.size() > limitMoments || m_bytes > limitBytes)) {
+    while (m_moments.size() > 1 && (m_moments.size() > limitMoments || Bytes() > limitBytes)) {
         // (the oldest goes: the timeline begins at it now)
         m_bytes -= m_moments.front().Bytes();
         m_first = std::move(m_moments.front().small);
         m_moments.pop_front();
     }
+}
+
+size_t Timeline::Bytes() const {
+    return m_bytes + m_ram.capacity() + m_vram.capacity() * 2 + m_first.capacity() + m_pixels.capacity() * 2 +
+           m_areas.capacity() * sizeof(VramArea);
 }
 
 bool Timeline::StepBack(Cv1000 &board, VramAccess &vram) {

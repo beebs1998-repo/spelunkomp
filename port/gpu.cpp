@@ -351,7 +351,7 @@ void Gpu::RunDraws(SDL_GPUCommandBuffer *cmd, const NativeDraw *draws, uint32_t 
     auto send = [&](SDL_GPUTexture *to, uint32_t offset, int width, int rows) {
         SDL_GPUTextureTransferInfo source{};
         source.transfer_buffer = m_upload;
-        source.offset = offset;
+        source.offset = m_uploadOffset + offset;
         source.pixels_per_row = static_cast<Uint32>(width);
         source.rows_per_layer = static_cast<Uint32>(rows);
         SDL_GPUTextureRegion region{};
@@ -359,7 +359,10 @@ void Gpu::RunDraws(SDL_GPUCommandBuffer *cmd, const NativeDraw *draws, uint32_t 
         region.w = static_cast<Uint32>(width);
         region.h = static_cast<Uint32>(rows);
         region.d = 1;
-        SDL_UploadToGPUTexture(copy, &source, &region, true);
+        // (never cycled: SDL would make another of these textures (the draws' alone is 64 MB) for each pass the GPU
+        // had not finished, and keep it; the GPU waits for the pass before to have read it instead, which it does
+        // anyway: each pass reads the VRAM the one before wrote)
+        SDL_UploadToGPUTexture(copy, &source, &region, false);
     };
     send(m_draws, 0, kDataSize, drawRows);
     send(m_lists, drawBytes, kDataSize, listRows);
@@ -396,9 +399,9 @@ void Gpu::Run(const NativeList &list) {
     if (list.steps.empty()) {
         return;
     }
+    // (one command buffer for the frame: its steps' data one after another in the upload buffer, GpuBase::MapUpload)
+    SDL_GPUCommandBuffer *cmd = SDL_AcquireGPUCommandBuffer(m_device);
     for (const NativeList::Step &step : list.steps) {
-        // (a command buffer a step: each step's data goes through the one transfer buffer, cycled)
-        SDL_GPUCommandBuffer *cmd = SDL_AcquireGPUCommandBuffer(m_device);
         if (step.upload) {
             const NativeUpload &u = list.uploads[step.first];
             if (u.width > 0 && u.height > 0) {
@@ -431,8 +434,6 @@ void Gpu::Run(const NativeList &list) {
                 const bool reads = written.x1 >= 0 && !(sb < written.x0 || sa > written.x1 || tb < written.y0 || ta > written.y1);
                 if (reads && i > from) {
                     RunDraws(cmd, draws + from, i - from);
-                    SDL_SubmitGPUCommandBuffer(cmd);
-                    cmd = SDL_AcquireGPUCommandBuffer(m_device);
                     from = i;
                     written = {kW, kH, -1, -1};
                 }
@@ -443,8 +444,8 @@ void Gpu::Run(const NativeList &list) {
             }
             RunDraws(cmd, draws + from, step.count - from);
         }
-        SDL_SubmitGPUCommandBuffer(cmd);
     }
+    SDL_SubmitGPUCommandBuffer(cmd);
 }
 
 void Gpu::PresentScreen(uint32_t scrollX, uint32_t scrollY, int turn, const SDL_FRect &to) {

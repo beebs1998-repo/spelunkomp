@@ -37,20 +37,30 @@ public:
             return;
         }
         Moment m;
+        size_t bytes = 0;
         for (size_t at = 0; at < state.size(); at += kPage) {
             const size_t size = std::min(kPage, state.size() - at);
             if (std::memcmp(&m_last[at], &state[at], size) != 0) {
                 m.pages.push_back(static_cast<uint32_t>(at / kPage));
-                m.before.insert(m.before.end(), m_last.begin() + static_cast<ptrdiff_t>(at), m_last.begin() + static_cast<ptrdiff_t>(at + size));
-                std::memcpy(&m_last[at], &state[at], size);
+                bytes += size;
             }
         }
+        m.pages.shrink_to_fit();
+        // (the pages as they were, in one allocation of just their size)
+        m.before.resize(bytes);
+        size_t to = 0;
+        for (uint32_t page : m.pages) {
+            const size_t at = static_cast<size_t>(page) * kPage, size = std::min(kPage, state.size() - at);
+            std::memcpy(&m.before[to], &m_last[at], size);
+            std::memcpy(&m_last[at], &state[at], size);
+            to += size;
+        }
         m_frames = 0;
-        m_bytes += m.before.size();
+        m_bytes += m.Bytes();
         m_moments.push_back(std::move(m));
-        while (m_moments.size() > limitMoments || m_bytes > limitBytes) {
+        while (!m_moments.empty() && (m_moments.size() > limitMoments || Bytes() > limitBytes)) {
             // (the oldest goes: the timeline begins at the moment after it now)
-            m_bytes -= m_moments.front().before.size();
+            m_bytes -= m_moments.front().Bytes();
             m_moments.pop_front();
         }
     }
@@ -68,7 +78,7 @@ public:
                 std::memcpy(&m_last[at], &m.before[from], size);
                 from += size;
             }
-            m_bytes -= m.before.size();
+            m_bytes -= m.Bytes();
             m_moments.pop_back();
         }
         m_frames = 0;
@@ -83,8 +93,9 @@ public:
     size_t Count() const {
         return m_moments.size();
     }
+    // What is held, all told (limitBytes is of this): the moments as allocated, and the board at the last
     size_t Bytes() const {
-        return m_bytes + m_last.size();
+        return m_bytes + m_last.capacity();
     }
 
 private:
@@ -92,6 +103,9 @@ private:
     struct Moment {
         std::vector<uint32_t> pages; // the pages that differ from the moment before
         std::vector<uint8_t> before; // (as they were then)
+        size_t Bytes() const {       // (as allocated)
+            return sizeof(Moment) + pages.capacity() * 4 + before.capacity();
+        }
     };
     bool m_begun = false;
     uint32_t m_frames = 0;       // (frames run since the last moment)
