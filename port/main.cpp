@@ -31,6 +31,7 @@
 #include "../runtime/romset.h"
 #include "../runtime/state.h"
 #include "bindings.h"
+#include "crash_log.h"
 #include "hud.h"
 #include "i18n.h"
 #include "online.h"
@@ -313,6 +314,7 @@ int main(int argc, char **argv) {
 #ifdef __ANDROID__
     port::StartOnAndroid();
 #else
+    port::KeepLogOnCrash(); // (the output written as it goes, so a crash keeps logs/game.log: port/crash_log.h)
     AddProgramFeatures(ArcadeFeatures()); // (not on a phone: it has no arcade monitor)
 #endif
     std::string configPath, romFolder = "rom", savesFolder, settingsPath, forcedFeatures;

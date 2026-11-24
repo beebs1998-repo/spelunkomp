@@ -82,6 +82,11 @@ with (the script stops if there is none), the downloads, how to install on each 
 
 6. Add an empty "Unreleased" section to `CHANGELOG.md` for what comes next.
 
+Keep `build/release-windows/symbols/` from the Windows build: its programs unstripped. A Windows crash writes the
+calls that led to it into the game's `logs/game.log` as program+offset (`ddpdoj.exe+0x40ba8`), and
+`tools/release/crash_where.sh build/release-windows/symbols/ddpdoj.exe 0x40ba8 ...` names their functions. Only the
+same build's programs match.
+
 ## If something is wrong after publishing
 
 Don't replace the files of a published release. Fix it, raise the version (`-beta.N+1`, or the patch number) and

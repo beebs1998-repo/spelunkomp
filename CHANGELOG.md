@@ -7,6 +7,9 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 - **CRT Newpixie** on the Shader setting: RetroArch's newpixie-crt, a light CRT look with chromatic aberration,
   ghosting, a little curvature and scanlines.
+- **A crash leaves its log.** A game's output reached `logs/game.log` only in blocks, so a crash lost it and the
+  launcher's report pointed at an empty log. It is now written as it goes, and on Windows a crash adds where it
+  happened and the calls that led there (the build's unstripped programs and `tools/release/crash_where.sh` name them).
 
 ## 0.1.0-beta.1
 
