@@ -70,7 +70,24 @@ with (the script stops if there is none), the downloads, how to install on each 
    folder, play a game of each board with a gamepad and with the keyboard (the picture, the sound, a save state, the
    training tools). macOS on a Mac, the Linux one on a Steam Deck or Steam Machine, the Windows one on a Windows PC,
    the Android app on a phone or tablet.
-5. **Upload and publish:**
+5. **Run the memory check** against the new downloads on Windows, Linux and macOS: `tools/release/memcheck.sh`, from
+   this Mac. Each system plays mmpork (CV1000-B), ddpsdoj (CV1000-D), ddonpach (Cave 68000) and ket (PGM) for 2
+   minutes each, and ddpsdoj again with rewind on, all three systems at once (about 10 minutes). A run fails if its
+   program goes over 1 GB, keeps climbing after its first 30 s, or does not end by itself; the script prints a table
+   and exits non-zero on any failure. Unpack each download on its machine first, with the ROM sets there; the
+   Windows user logged in at the desktop (the games are started by a scheduled task in that session), the Linux
+   machine in its desktop session (gamescope's on a Steam Machine or Deck). Say where each is:
+
+   ```sh
+   MEMCHECK_WIN=user@windows-pc MEMCHECK_WIN_DIR='C:\Games\Spelunkomp' MEMCHECK_WIN_ROMS='C:\Games\roms' \
+   MEMCHECK_LINUX=user@steam-machine MEMCHECK_LINUX_DIR=Games/Spelunkomp MEMCHECK_LINUX_ROMS=Games/roms \
+   MEMCHECK_MAC_APP=/path/to/Spelunkomp.app MEMCHECK_MAC_ROMS=../cv1k-roms \
+       tools/release/memcheck.sh            # --dry-run: the commands, run on no machine; win, linux, mac: those only
+   ```
+
+   ssh must reach the two without a password (a key). The logs are in `build/memcheck/`; the script's first lines say
+   the rest.
+6. **Upload and publish:**
 
    ```sh
    cd build/release
@@ -80,7 +97,7 @@ with (the script stops if there is none), the downloads, how to install on each 
    gh release edit "v$(cat ../../VERSION)" --draft=false
    ```
 
-6. Add an empty "Unreleased" section to `CHANGELOG.md` for what comes next.
+7. Add an empty "Unreleased" section to `CHANGELOG.md` for what comes next.
 
 Keep `build/release-windows/symbols/` from the Windows build: its programs unstripped. A Windows crash writes the
 calls that led to it into the game's `logs/game.log` as program+offset (`ddpdoj.exe+0x40ba8`), and
