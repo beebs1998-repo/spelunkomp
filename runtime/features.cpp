@@ -64,6 +64,12 @@ namespace {
              "takes off that, the port's own time from a key or button going down to handing the frame with it to the screen, "
              "and the sum. Your screen's own delay comes on top. The game plays exactly the same with it on.",
              0, {}},
+            {"fps_counter", "Display", "FPS counter",
+             "The frames shown each second, in the top right corner: 60 on the CV1000, 59 on the PGM, 57 on Cave's 68000 "
+             "board, as the board's own screen. Fewer means this machine is not keeping up (run-ahead's frames, a heavy "
+             "shader, a slow processor). The game's own slowdown is not counted here (the board's screen goes on at its "
+             "rate): Speed readout shows that.",
+             0, {}},
 #ifdef __ANDROID__
             // (port/touch.h)
             {"touch_controls", "Controls", "Touch controls",
