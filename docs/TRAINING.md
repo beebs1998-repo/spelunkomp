@@ -38,7 +38,10 @@ would stall the game and rewind could not exist. So:
 - **The practice point** holds all of RAM and all of VRAM once (brought when it is set: about 11 ms), and from then
   notes the blocks written; going back sends those blocks only (about 3 ms).
 - **The timeline** keeps a moment every 6 frames (a tenth of a second), about 1 MB each in play, up to 384 MB in
-  all, as allocated, its own copy of RAM and VRAM counted: about 30 seconds. Keeping one takes about 1 ms and is done after the frame is shown.
+  all: about 30 seconds. Keeping one takes about 1 ms and is done after the frame is shown. The 384 MB is what it takes
+  of the machine's memory: its own copy of RAM and VRAM, the GPU's buffer a moment's VRAM is read back through, and its
+  moments, kept one after another in one store used round and round (made at its start, the system giving it memory as
+  it fills), not each in an allocation of its own, whose freed places the allocator could not always use again.
 
 The sound chip's state is part of a moment, so the music is where it was.
 

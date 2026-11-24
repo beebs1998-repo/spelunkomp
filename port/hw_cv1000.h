@@ -184,6 +184,7 @@ struct Hw {
                 }
             };
             vramAccess.readAll = [this](std::vector<uint16_t> &all) { gpu.GetVram(all); };
+            vramAccess.kept = [this] { return gpu.DownloadBytes(); };
         } else {
             vramAccess.read = softRead;
             vramAccess.write = softWrite;

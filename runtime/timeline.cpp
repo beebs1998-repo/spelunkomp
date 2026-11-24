@@ -3,6 +3,7 @@
 #include "timeline.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <cstring>
 
 namespace spelunk {
@@ -98,9 +99,41 @@ void Point::Back(Cv1000 &board, VramAccess &vram) {
 void Timeline::Clear() {
     m_begun = false;
     m_moments.clear();
-    m_bytes = 0;
+    m_readsKept = 0;
     m_frames = 0;
     m_written.Clear();
+}
+
+void Timeline::DropOldest() {
+    // (the timeline begins at it now)
+    const Moment &m = m_moments.front();
+    m_first.assign(&m_store[m.at], &m_store[m.at] + m.small);
+    m_moments.pop_front();
+}
+
+size_t Timeline::Place(size_t bytes) {
+    if (bytes > m_storeSize) {
+        return SIZE_MAX;
+    }
+    for (;;) {
+        if (m_moments.empty()) {
+            return 0;
+        }
+        const size_t oldest = m_moments.front().at, end = m_moments.back().at + m_moments.back().size;
+        if (m_moments.back().at >= oldest) {
+            // (the newest after the oldest: room after it, else at the store's start, before the oldest)
+            if (m_storeSize - end >= bytes) {
+                return end;
+            }
+            if (oldest >= bytes) {
+                return 0;
+            }
+        } else if (oldest - end >= bytes) {
+            // (gone round: room between the newest and the oldest)
+            return end;
+        }
+        DropOldest();
+    }
 }
 
 void Timeline::Keep(Cv1000 &board, VramAccess &vram) {
@@ -112,54 +145,74 @@ void Timeline::Keep(Cv1000 &board, VramAccess &vram) {
         m_written.Clear();
         m_frames = 0;
         m_begun = true;
+        // (the store: what limitBytes leaves beside RAM and VRAM as kept here, the board's moment, and a part for what
+        // a moment's VRAM is read through, kept here and by VRAM's reads)
+        constexpr size_t kReads = 16u << 20;
+        const size_t beside = m_ram.capacity() + m_vram.capacity() * 2 + m_first.capacity() + kReads;
+        const size_t size = limitBytes > beside ? limitBytes - beside : 0;
+        if (size != m_storeSize) {
+            m_store.reset(size ? new uint8_t[size] : nullptr);
+            m_storeSize = size;
+            m_storeUsed = 0;
+        }
         return;
     }
-    Moment m;
-    board.KeepMoment(m.small);
-    m.small.shrink_to_fit();
+    board.KeepMoment(m_small);
+    m_pages.clear();
     for (size_t page = 0; page < ramSize >> 12; page++) {
         if (std::memcmp(&m_ram[page << 12], &board.ram[page << 12], 0x1000) != 0) {
-            m.pages.push_back(static_cast<uint32_t>(page));
+            m_pages.push_back(static_cast<uint32_t>(page));
         }
     }
-    m.pages.shrink_to_fit();
-    // (the pages as they were, in one allocation of just their size)
-    m.pagesBefore.resize(m.pages.size() << 12);
-    for (size_t i = 0; i < m.pages.size(); i++) {
-        uint8_t *then = &m_ram[static_cast<size_t>(m.pages[i]) << 12];
-        std::memcpy(&m.pagesBefore[i << 12], then, 0x1000);
-        std::memcpy(then, &board.ram[static_cast<size_t>(m.pages[i]) << 12], 0x1000);
+    const std::vector<uint32_t> &blocks = m_written.List();
+    Moment m;
+    m.small = static_cast<uint32_t>(m_small.size());
+    m.pages = static_cast<uint32_t>(m_pages.size());
+    m.blocks = static_cast<uint32_t>(blocks.size());
+    m.size = Aligned(m.BlocksBeforeAt() - m.at + static_cast<size_t>(m.blocks) * Written::kPixels * 2);
+    while (m_moments.size() >= limitMoments) {
+        DropOldest();
     }
-    m.blocks = m_written.List();
-    m.blocks.shrink_to_fit();
-    if (!m.blocks.empty()) {
+    m.at = Place(m.size);
+    if (m.at == SIZE_MAX) {
+        // (a moment larger than the whole store: the timeline begins again from here)
+        Clear();
+        Keep(board, vram);
+        return;
+    }
+    m_storeUsed = std::max(m_storeUsed, m.at + m.size);
+    uint8_t *const out = &m_store[0];
+    std::memcpy(out + m.at, m_small.data(), m_small.size());
+    std::memcpy(out + m.PagesAt(), m_pages.data(), m_pages.size() * 4);
+    // (the pages as they were)
+    for (size_t i = 0; i < m_pages.size(); i++) {
+        uint8_t *then = &m_ram[static_cast<size_t>(m_pages[i]) << 12];
+        std::memcpy(out + m.BeforeAt() + (i << 12), then, 0x1000);
+        std::memcpy(then, &board.ram[static_cast<size_t>(m_pages[i]) << 12], 0x1000);
+    }
+    if (!blocks.empty()) {
+        std::memcpy(out + m.BlocksAt(), blocks.data(), blocks.size() * 4);
         m_areas.clear();
-        for (uint32_t b : m.blocks) {
+        for (uint32_t b : blocks) {
             m_areas.push_back(Written::Area(b));
         }
-        m_pixels.resize(m.blocks.size() * Written::kPixels);
+        m_pixels.resize(blocks.size() * Written::kPixels);
         vram.read(m_areas, m_pixels.data());
-        m.blocksBefore.resize(m_pixels.size());
-        for (size_t i = 0; i < m.blocks.size(); i++) {
-            BlockFrom(m_vram, m.blocks[i], &m.blocksBefore[i * Written::kPixels]);
-            BlockTo(m_vram, m.blocks[i], &m_pixels[i * Written::kPixels]);
+        uint16_t *before = reinterpret_cast<uint16_t *>(out + m.BlocksBeforeAt());
+        for (size_t i = 0; i < blocks.size(); i++) {
+            BlockFrom(m_vram, blocks[i], before + i * Written::kPixels);
+            BlockTo(m_vram, blocks[i], &m_pixels[i * Written::kPixels]);
         }
     }
     m_written.Clear();
     m_frames = 0;
-    m_bytes += m.Bytes();
-    m_moments.push_back(std::move(m));
-    while (m_moments.size() > 1 && (m_moments.size() > limitMoments || Bytes() > limitBytes)) {
-        // (the oldest goes: the timeline begins at it now)
-        m_bytes -= m_moments.front().Bytes();
-        m_first = std::move(m_moments.front().small);
-        m_moments.pop_front();
-    }
+    m_readsKept = vram.kept ? vram.kept() : 0;
+    m_moments.push_back(m);
 }
 
 size_t Timeline::Bytes() const {
-    return m_bytes + m_ram.capacity() + m_vram.capacity() * 2 + m_first.capacity() + m_pixels.capacity() * 2 +
-           m_areas.capacity() * sizeof(VramArea);
+    return m_storeUsed + m_ram.capacity() + m_vram.capacity() * 2 + m_first.capacity() + m_small.capacity() + m_pages.capacity() * 4 +
+           m_pixels.capacity() * 2 + m_areas.capacity() * sizeof(VramArea) + m_readsKept;
 }
 
 bool Timeline::StepBack(Cv1000 &board, VramAccess &vram) {
@@ -168,18 +221,29 @@ bool Timeline::StepBack(Cv1000 &board, VramAccess &vram) {
     }
     if (!m_frames) {
         // (at the last moment already: to the one before it)
-        Moment &m = m_moments.back();
-        for (size_t i = 0; i < m.pages.size(); i++) {
-            std::memcpy(&m_ram[static_cast<size_t>(m.pages[i]) << 12], &m.pagesBefore[i << 12], 0x1000);
+        const Moment &m = m_moments.back();
+        const uint8_t *in = &m_store[0];
+        for (size_t i = 0; i < m.pages; i++) {
+            uint32_t page;
+            std::memcpy(&page, in + m.PagesAt() + i * 4, 4);
+            std::memcpy(&m_ram[static_cast<size_t>(page) << 12], in + m.BeforeAt() + (i << 12), 0x1000);
         }
-        for (size_t i = 0; i < m.blocks.size(); i++) {
-            BlockTo(m_vram, m.blocks[i], &m.blocksBefore[i * Written::kPixels]);
-            m_written.Add(m.blocks[i]);
+        const uint16_t *before = reinterpret_cast<const uint16_t *>(in + m.BlocksBeforeAt());
+        for (size_t i = 0; i < m.blocks; i++) {
+            uint32_t block;
+            std::memcpy(&block, in + m.BlocksAt() + i * 4, 4);
+            BlockTo(m_vram, block, before + i * Written::kPixels);
+            m_written.Add(block);
         }
-        m_bytes -= m.Bytes();
         m_moments.pop_back();
     }
-    board.SetMoment(m_moments.empty() ? m_first : m_moments.back().small, m_ram.data());
+    if (m_moments.empty()) {
+        board.SetMoment(m_first, m_ram.data());
+    } else {
+        const Moment &m = m_moments.back();
+        m_small.assign(&m_store[m.at], &m_store[m.at] + m.small);
+        board.SetMoment(m_small, m_ram.data());
+    }
     Send(vram, m_written.List(), m_vram, m_areas, m_pixels);
     m_written.Clear();
     m_frames = 0;
@@ -201,7 +265,6 @@ void Timeline::Jumped(Cv1000 &board, const Point &point) {
     std::memcpy(m_ram.data(), point.Ram().data(), m_ram.size());
     board.KeepMoment(m_first);
     m_moments.clear();
-    m_bytes = 0;
     m_written.Clear();
     m_frames = 0;
 }
