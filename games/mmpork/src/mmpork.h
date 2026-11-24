@@ -20,6 +20,11 @@ constexpr uint32_t kShips = 0x0C510D2Bu; // the ships left (a byte, record +0x20
 // The bombs in stock (a byte, record +0x214; 2 as a game begins, one taken by a bomb: found 2026-11-12 by RAM dumps with
 // and without a bomb; the HUD's B icons go with it). The bomb is button 3 (input bit 0x40; button 2 is the lard attack)
 constexpr uint32_t kBombs = 0x0C510D3Cu;
+// The lard meter (a word, record +0x20E; 104 full: found 2026-11-24 by RAM dumps of made-up play, the one value that
+// rose with the bar at the bottom of the picture, 26, 39, 60, 87 at a quarter, two fifths, three fifths and most of it,
+// then stayed at 104 with the bar full)
+constexpr uint32_t kLard = 0x0C510D36u;
+constexpr uint32_t kLardFull = 104;
 // Out of harm while flown, the frames counted to 60 while lost (a byte, record +0x21E): held at 59, both at once
 // (Ibara's kSafeFrames; the first finding held it at a value the count to 60 never meets, so a ship lost at that moment
 // never came back)
