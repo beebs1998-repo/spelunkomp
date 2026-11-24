@@ -6,7 +6,10 @@ a real Ibara PCB, on the MiSTer core (ikacore_CV1k) and in MAME:
 [Benchmarking CV1000: PCB vs MAME and MiSTer](https://buffis.com/arcade/benchmarking-cv1000-pcb-vs-mame-and-mister/).
 The benchmark is buffi's and not part of this repository; nothing of it is committed here. Get it from buffi.
 
-The MAME columns below are buffi's own numbers (from his article). MAME git 8fd33e3 (2026-11-22), built and run here, gives the same 20 numbers to the digit; for shmupmame, MAME 0.275 and the community's CPU settings, see
+The MAME columns below are buffi's own numbers (from his article): MAME master, built from source, since the newest CV1000
+code is in no release yet (SH7709S timing PRs #15685 and #16063, August and September, and #16274's blitter bus gaps of
+2026-10-07 all came after MAME 0.289 of 2026-07-30, the latest release). MAME master built
+and run here gives the same 20 numbers to the digit, at git 8fd33e3 (2026-11-22) and again at 17acd58f5 (2026-11-24); for shmupmame, MAME 0.275 and the community's CPU settings, see
 [Against shmupmame](#against-shmupmame-and-mame-2026-11-23).
 
 ## Method
@@ -433,7 +436,9 @@ so the CPU tests halve at 50% while the blitter tests don't move.
 ### How it was run
 
 All builds here are cv1k only (`make SUBTARGET=cv1k SOURCES=src/mame/cave/cv1k.cpp,...`, SDL2 and zlib from the
-system). Each run is headless: `ibara -nonvram_save -video none -sound none -nothrottle`. A Lua script
+system). MAME master now builds against SDL3, so on a Mac with Homebrew's SDL3 that takes `USE_LIBSDL=1 REGENIE=1`,
+`LDOPTS="-L/opt/homebrew/lib -lSDL3"` and the headers on `CPATH`, and `SOURCES` must name every `src/mame/cave/cv1k*.cpp`
+(the blitter's draw functions are in `cv1k_v_blit0..8.cpp`). Each run is headless: `ibara -nonvram_save -video none -sound none -nothrottle`. A Lua script
 (`-autoboot_script`) reads the results screen's 20 lines from main RAM at 200 s of emulated time, the same way
 `tools/cv1kbench.sh` reads them at frame 12,000. Nothing of it is kept in this repository. The port column is a fresh
 `tools/cv1kbench.sh` run on origin/main acfb73b (after PR #68's blitter IRQ1): the same 20 numbers as the table
@@ -444,7 +449,7 @@ above.
 The error is against the PCB, + where the emulator is faster (for the rows in µs and ms, + is slower). BLIT LATENCY
 is shown in whole µs.
 
-| test | PCB | port (on) | MAME 0.275 | shmupmame 5.4 | MAME git 8fd33e3 (= buffi's MAME) |
+| test | PCB | port (on) | MAME 0.275 | shmupmame 5.4 | MAME master (git 8fd33e3 and 17acd58f5 = buffi's MAME) |
 |---|---|---|---|---|---|
 | RAMP 8X8 SPR (@60) | 4800 | 4850 (+1.0%) | 9075 (+89.1%) | 7350 (+53.1%) | 4875 (+1.6%) |
 | RAMP 8X8 STILL (@60) | 9085 | 9123 (+0.4%) | 9123 (+0.4%) | 9123 (+0.4%) | 9123 (+0.4%) |
@@ -469,7 +474,8 @@ is shown in whole µs.
 | **mean error (size)** | | **0.8%** | 42.0% | 27.7% | 7.5% |
 | **within 2% of the PCB** | | **19 of 20** | 8 | 8 | 14 |
 
-shmupmame 5.4 and MAME 0.275 under the community's CPU settings (error against the PCB only):
+shmupmame 5.4 and the MAME 0.275 release (not master) under the community's CPU settings (error against the PCB only;
+those settings were tuned on old builds, so master is shown at its own clock only, in the table above):
 
 | test | port | sm 50% | sm 40.6% | sm 38% | sm 37.6% | sm 37% | 0.275 50% | 0.275 40.6% | 0.275 38% | 0.275 37.6% | 0.275 37% |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -524,7 +530,7 @@ cadence: docs/SLOWDOWN.md, "The blitter's clock and line fetch"): RAMP 8X8 STILL
 1694, 8X8 SPRITES 603, SCREEN COPY 90.7, GAME FRAME 171.4. Small as it is, a blitter-bound game's slowdown is steep
 in it: Mushihimesama's stage 3 was late 545 frames with the blitter 3% slower against 303.
 
-**Against current MAME** (git 8fd33e3, the same as buffi's column): the port is closer on 8, equal on 10, and
+**Against MAME master** (git 8fd33e3, the same as buffi's column; 17acd58f5 of 2026-11-24 gives the same 20 numbers): the port is closer on 8, equal on 10, and
 farther on 2: QUICKSORT (+6.4% against MAME's +1.4%: the gap [looked at above](#cpu-quicksort-looked-at-again-2026-11-21),
 where MAME's nearness comes from a rule that puts INTEGER 27% fast and MEMORY 27% slow) and BLITTER PAIN (+1.5%
 against +1.0%, half a millisecond a round). Current MAME is far ahead of shmupmame 5.4 (7.5% mean against 27.7%). A
