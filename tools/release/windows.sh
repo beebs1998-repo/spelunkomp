@@ -27,6 +27,9 @@ STAGE="$BUILD/stage/$ARCHIVE"
 rm -rf "$BUILD/stage" && mkdir -p "$STAGE"
 copy_programs "$BUILD" "$STAGE" .exe
 cp "$SDL/x86_64-w64-mingw32/bin/SDL3.dll" "$STAGE/"
+# (the programs unstripped, kept beside the archive, not in it: a crash log's program+offset into a function name,
+# tools/release/crash_where.sh)
+rm -rf "$BUILD/symbols" && mkdir -p "$BUILD/symbols" && cp "$STAGE"/*.exe "$BUILD/symbols/"
 x86_64-w64-mingw32-strip "$STAGE"/*.exe
 # (linked statically but for SDL3.dll and Windows' own (WinHTTP: the launcher's requests, recomp-common); anything
 # else here is a mistake)
