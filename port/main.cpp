@@ -196,15 +196,16 @@ void MarkHitBoxes(port::Hud &hud, const Board &board, int degrees, const std::ve
 
 // The Display page's Shader's presets, in the order of its choices after Off (the folders and files of RetroArch's
 // slang-shaders, copied to shaders/ beside the program by tools/shaders.py; cps2recomp's list, so the ports' menus
-// match), then Your own, then the ones added after it (CRT Newpixie), so a saved choice keeps its number
+// match, with CRT Newpixie among the CRTs), then Your own (kYourOwnShader, runtime/own_shader.h), which has none. A
+// choice is kept by name (kShaderIds there), so this order is free.
 const char *const kShaderPresets[] = {
     "crt/crt-geom-mini.slangp", "crt/crt-lottes.slangp", "crt/crt-royale.slangp", "crt/crt-guest-advanced-fast.slangp",
-    "crt/zfast-crt.slangp", "scanlines/scanline-fract.slangp", "pixel-art-scaling/sharp-bilinear-scanlines.slangp",
-    "scanlines/ossc.slangp", "scanlines/integer-scaling-scanlines.slangp",
-    "edge-smoothing/xbrz/xbrz-freescale-multipass.slangp", "edge-smoothing/scalefx/scalefx.slangp",
-    "crt/newpixie-crt.slangp",
+    "crt/zfast-crt.slangp", "crt/newpixie-crt.slangp", "scanlines/scanline-fract.slangp",
+    "pixel-art-scaling/sharp-bilinear-scanlines.slangp", "scanlines/ossc.slangp",
+    "scanlines/integer-scaling-scanlines.slangp", "edge-smoothing/xbrz/xbrz-freescale-multipass.slangp",
+    "edge-smoothing/scalefx/scalefx.slangp",
 };
-// (and Your own, kYourOwnShader: runtime/game.h)
+static_assert(std::size(kShaderPresets) + 2 == kShaderCount, "a preset for every choice but Off and Your own");
 
 // Your own's presets (recomp-common/own_shaders.h): the shaders folder every game shares, in the launcher's folder
 // (named so; the launcher says where in RECOMP_SHADERS), and this game's own, beside its settings.ini
@@ -235,7 +236,7 @@ std::string ShaderPreset(int value, const std::string &settingsPath, const std::
         }
         return preset ? recomp::shaders::Utf8(preset->file) : "";
     }
-    const int entry = value < kYourOwnShader ? value - 1 : value - 2; // (kShaderPresets' entry)
+    const int entry = value - 1; // (kShaderPresets' entry)
     if (value < 1 || entry >= static_cast<int>(std::size(kShaderPresets))) {
         return "";
     }
@@ -422,7 +423,7 @@ int main(int argc, char **argv) {
         } else if (a == "--begin-now" && i + 1 < argc) {
             beginNowAt = strtoull(argv[++i], nullptr, 0); // (tests: the menu's Begin at the stage chosen at this frame)
         } else if (a == "--features" && i + 1 < argc) {
-            forcedFeatures = argv[++i]; // name=N,name,-name whatever settings.ini says (checks)
+            forcedFeatures = argv[++i]; // name=N (or a choice by name),name,-name whatever settings.ini says (checks)
         }
     }
     GameConfig config;
@@ -448,12 +449,17 @@ int main(int argc, char **argv) {
     if (!settingsPath.empty()) {
         recomp::Ini ini(settingsPath);
         ini.load();
+        // (a file from before a choice was kept by name, the Shader's: made over once, recomp-common/settings.h)
+        if (recomp::MigrateFeatures(ini, AllFeatures())) {
+            ini.save();
+        }
         features = recomp::FeatureValues(ini, AllFeatures());
     } else {
         for (size_t i = 0; i < features.size(); i++) {
             features[i] = (AllFeatures()[i].flags & recomp::kFeatureEnhanced) ? 1 : 0;
         }
     }
+    // (name=N, or a choice by its name: shader=crt-newpixie)
     for (size_t from = 0; !forcedFeatures.empty() && from <= forcedFeatures.size();) {
         const size_t comma = forcedFeatures.find(',', from);
         std::string name = forcedFeatures.substr(from, comma == std::string::npos ? std::string::npos : comma - from);
@@ -462,11 +468,17 @@ int main(int argc, char **argv) {
             name.erase(0, 1);
             value = 0;
         }
+        std::string text;
         if (const size_t equals = name.find('='); equals != std::string::npos) {
-            value = atoi(name.c_str() + equals + 1);
+            text = name.substr(equals + 1);
+            value = atoi(text.c_str());
             name.resize(equals);
         }
         if (const size_t at = FeatureIndex(name); at < features.size()) {
+            const std::vector<std::string> &ids = AllFeatures()[at].ids;
+            if (const auto id = std::find(ids.begin(), ids.end(), text); !text.empty() && id != ids.end()) {
+                value = static_cast<int>(id - ids.begin());
+            }
             features[at] = value;
         }
         if (comma == std::string::npos) {

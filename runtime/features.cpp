@@ -19,8 +19,11 @@ namespace {
              "largest that fits, if the window is smaller). Fill the window: as large as fits, with pixels of uneven sizes.",
              0, {"Whole pixels (largest that fits)", "Fill the window", "1x", "2x", "3x", "4x", "5x", "6x", "7x", "8x"}},
             // (shader: port/shading.h; its presets kShaderPresets in port/main.cpp, in shaders/ beside the program: the
-            // same list and words as cps2recomp's Display page, and CRT Newpixie after Your own; tools/librashader.sh. Your own's
-            // presets: recomp-common/own_shaders.h, and its own row under this one in the menu and the launcher)
+            // same list and words as cps2recomp's Display page, with CRT Newpixie among the CRTs; tools/librashader.sh.
+            // Your own's presets: recomp-common/own_shaders.h, and its own row under this one in the menu and the
+            // launcher. Kept by name, kShaderIds (shader_id, and beside it shader = its number in the order of the
+            // releases before the names, kShaderNumbered: CRT Newpixie was 13, after Your own), so the list's order
+            // is free)
             {"shader", "Display", "Shader",
              "The picture drawn through one of RetroArch's shaders. CRT: a curved arcade monitor. CRT "
              "Lottes and CRT Guest: flat monitors, sharp and bright. CRT Royale: the closest to a real "
@@ -33,8 +36,10 @@ namespace {
              "own. The launcher chooses which of these the menu goes through. The picture's "
              "shape and size stay as set; the shader draws its pixels in place of Scaling.",
              recomp::kFeatureMenuChoices,
-             {"Off", "CRT", "CRT Lottes", "CRT Royale", "CRT Guest", "CRT Light", "Scanlines: light", "Scanlines: strong",
-              "Scanlines: OSSC", "Scanlines: dark", "xBRZ", "ScaleFX", "Your own", "CRT Newpixie"}},
+             {"Off", "CRT", "CRT Lottes", "CRT Royale", "CRT Guest", "CRT Light", "CRT Newpixie", "Scanlines: light",
+              "Scanlines: strong", "Scanlines: OSSC", "Scanlines: dark", "xBRZ", "ScaleFX", "Your own"},
+             {kShaderIds, kShaderIds + kShaderCount},
+             {kShaderNumbered, kShaderNumbered + sizeof kShaderNumbered / sizeof kShaderNumbered[0]}},
             {"scanline_direction", "Display", "Scanline direction",
              "Which way a shader's lines run in a game made for a monitor on its side. Vertical: as on the cabinet, whose "
              "monitor was turned on its side, so its lines run up and down the picture (the shader draws the board's "

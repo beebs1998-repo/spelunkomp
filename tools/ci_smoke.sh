@@ -15,6 +15,11 @@ for cfg in games/*/game.cfg; do
     [ -f "$program" ] || continue
     features="$("$program" --list-features)"
     echo "$features" | grep -q free_play || { echo "$id: the program's features have no free_play"; exit 1; }
+    # (the Shader kept by name, and what its numbers meant in the releases before the names, which must never change:
+    # runtime/own_shader.h)
+    echo "$features" | grep "^shader$(printf '\t')" | cut -f8 |
+        grep -qx 'off|crt|crt-lottes|crt-royale|crt-guest|crt-light|scanlines-light|scanlines-strong|scanlines-ossc|scanlines-dark|xbrz|scalefx|your-own|crt-newpixie' ||
+        { echo "$id: the Shader's old numbers are not those of 0.1.0-beta.2 and 0.2.0-beta.1"; exit 1; }
     started=$((started + 1))
 done
 [ "$started" -gt 0 ] || { echo "no game program built (make, or make games)"; exit 1; }
