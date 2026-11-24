@@ -43,6 +43,7 @@ echo "against $REF; $JOBS at a time; out: $OUT"
 # ---- The builds: each set's shadow build of this tree, and its build of REF (a worktree of it, made here) ----
 REFSRC=$OUT/ref-src
 if [ ! -d "$REFSRC" ]; then
+    git -C "$ROOT" worktree prune # (one deleted with OUT)
     git -C "$ROOT" worktree add --detach "$REFSRC" "$REF" > /dev/null 2>&1 || { echo "error: cannot check out $REF into $REFSRC"; exit 2; }
 fi
 git -C "$REFSRC" checkout --detach -q "$REF" || { echo "error: $REF"; exit 2; }
