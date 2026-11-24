@@ -1992,6 +1992,11 @@ int main(int argc, char **argv) {
     port::HostTime hostTime(std::chrono::duration<double, std::milli>(frameTime).count());
     double hostShown = 0;
     next = std::chrono::steady_clock::now();
+    // The FPS counter (Display): frames handed to the screen, counted over the last half second (as Soulcalibur II's)
+    const size_t fpsAt = FeatureIndex("fps_counter");
+    uint64_t fpsFrom = SDL_GetTicksNS();
+    unsigned fpsFrames = 0;
+    double fpsRate = 0;
     while (running) {
         const uint64_t workFrom = SDL_GetTicksNS();
         SDL_Event e;
@@ -2615,6 +2620,11 @@ int main(int argc, char **argv) {
             if (lagOn() && !replaying) {
                 hud.Line(lagLine(ahead).c_str());
             }
+            if (fpsAt < features.size() && features[fpsAt]) {
+                char words[16];
+                snprintf(words, sizeof words, "%.0f FPS", fpsRate);
+                hud.Text(0.985f, 0.015f, 1, words);
+            }
             if (hitBoxesAt < features.size() && features[hitBoxesAt] && ThisGame().hitBoxes) {
                 MarkHitBoxes(hud, *board, turnNow(), features);
             }
@@ -2677,6 +2687,12 @@ int main(int argc, char **argv) {
             hostTime.Add(workTo - workFrom, workTo);
         }
         presentPicture();
+        fpsFrames++;
+        if (const uint64_t now = SDL_GetTicksNS(); now - fpsFrom >= 500000000ull) {
+            fpsRate = fpsFrames * 1e9 / static_cast<double>(now - fpsFrom);
+            fpsFrom = now;
+            fpsFrames = 0;
+        }
         if (lag.pressedAt && !rewinding) {
             // (the frame that read the press is on its way to the screen)
             const double ms = static_cast<double>(SDL_GetTicksNS() - lag.pressedAt) / 1e6;
