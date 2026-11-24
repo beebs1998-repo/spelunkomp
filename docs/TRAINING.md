@@ -73,7 +73,7 @@ runtime/shmup.h makes the features from them:
 
 | Game | Has them |
 | --- | --- |
-| Mushihimesama | all five |
+| Mushihimesama, Matsuri Ver 1.5 | all five |
 | Mushihimesama Futari 1.0, 1.5, Black Label and its Another Ver | all five (a game begun at a later stage shows the stage tally first: the game's own way in) |
 | Espgaluda II | all five (the guard barrier's gauge kept full stands for the bombs) |
 | DoDonPachi Dai-Fukkatsu 1.0, 1.5, Black Label | all five (one stage-begin routine found by its code's shape; tried at stage 2 and its boss) |
@@ -98,7 +98,9 @@ runtime/shmup.h makes the features from them:
 Futari Ver 1.0 and Black Label (2007), and Dai-Fukkatsu Ver 1.0, are other builds of the games beside them: each place
 was re-found in their programs from the sibling's, its routines by their instruction bytes and its places in RAM through
 the literal pools of the same code (each names header says where it came from), and checked in headless runs (a game at
-stage 3, the trip to stage 1's boss, the bomb held with out of harm and both endless features on).
+stage 3, the trip to stage 1's boss, the bomb held with out of harm and both endless features on). Mushihimesama
+Matsuri Ver 1.5 is Mushihimesama's program reworked, most of it moved: its places were found by watching the player's
+record and breaking on the routines the same features use in Mushihimesama, and checked the same way.
 
 The three games that have them share an engine: the two routines that begin a game were found in Mushihimesama by
 watching its stage number being written, and in the other two by the shape of their code. The checks so far are by
@@ -151,6 +153,7 @@ the tools' layer over it, so the GPU and software paths both show them; the game
 | ESP Ra.De., Guwange | the character, the bullets, the bodies: from 005E72 / 007D4C |
 | Espgaluda II | the ship (5 x 5 pixels), the bullets, the enemies whose bodies hit: from the game's collision kinds (0x0C0631E0 tests each kind's members; the ship is kind 0 of 0x0C37D2A0, the bullets kind 6 and the bodies kind 5 of 0x0C37D300), read after the frame |
 | Mushihimesama | the ship (about 5 x 5 pixels), the bullets, the enemies whose bodies hit: from the game's test at 0x0C05B110, read as it is entered (the game makes these boxes anew each frame and clears them by its end). While the ship is out of harm the game makes no box for it; it is drawn where it would be |
+| Mushihimesama Matsuri Ver 1.5 | the same, from its test at 0x0C05B3E0: its lists are Mushihimesama's with entries of 8 bytes (the record at +4) |
 | Mushihimesama Futari 1.5, Black Label Another Ver, 1.0, Black Label | the ship (5 x 5), the bullets, the bodies that hit: Espgaluda II's engine of collision kinds (tables 0x0C38A2C4 / 0x0C383548 / 0x0C387BD8 / 0x0C383120), read after the frame |
 | DoDonPachi Dai-Fukkatsu 1.5, Black Label, SaiDaiOuJou, Dai-Fukkatsu 1.0 | the ship (5 x 5; 7 x 7 in SaiDaiOuJou), the bullets, the bodies: the same kinds in a later build (0x0C5C0568 / 0x0C713AAC / 0x0C5F5E0C / 0x0C5BF230). Out of harm, the ship's box is drawn at its hittable size from the game's own table |
 | Ibara, Ibara Kuro Black Label | the ship's box (its graze box left out), the bullets, the bodies: from the tests at 0x0C05F460 / 0x0C05F1E0 (0x0C06EF50 / 0x0C06ECE0), placed by the field's camera |
@@ -172,7 +175,7 @@ that are not among those that hit the ship), from the game's own shot test, read
 | Air Gallet | the shot test follows the ship's (0101F4): an enemy the shots hurt has bit 13 of its first word, one that hits the ship bit 14; the first 57 of the 156 records are the ground's and are not tested against the ship (unless the word at 109270 is set). Some large aircraft are drawn as ground: the game does not test them against the ship. Shots: each player's 32 records (the bombs' blasts and the pickups left out) |
 | DoDonPachi Dai-Ou-Jou, Black Label, Ketsui, Espgaluda | the shot test follows the ship's in the same routine. Enemies are two groups, the second the ground's; one the shots can hurt has bit 0x2000 of its first word. Shots as the test reads them, with DOJ's laser (its beam cut where it stops, its aura) and Espgaluda's lasers, awakened or not |
 | DoDonPachi II: Bee Storm | an enemy has up to ten boxes, each with a bit for "the shots hurt it" and one for "it hits the ship": a box with the first and not the second is ground. The shots' boxes from their records as 150104 tests them; while the laser is on, its aura, beam and head (14FC42) in their place, and while the bee storm is out, its two boxes (14FEFC) |
-| Mushihimesama | the body lists' records with +0 set and +4 clear are tested by the shot pass (0x0C05A9C0) and never hit the ship; the shots and lasers' lists, read at the hit test's entry |
+| Mushihimesama, Matsuri Ver 1.5 | the body lists' records with +0 set and +4 clear are tested by the shot pass (0x0C05A9C0; Matsuri's 0x0C05ACF0) and never hit the ship; the shots and lasers' lists, read at the hit test's entry |
 | Ibara, Ibara Kuro Black Label, Pink Sweets, Muchi Muchi Pork! | the shot tests (0x0C05E6E0 / 0x0C05EAA0; 0x0C06E1D0 / 0x0C06E540; 0x0C075BA0 / 0x0C076150; 0x0C073490 / 0x0C0737F0): an enemy's shootable bit without its bit that hits the ship: turrets, tanks, buildings that can be destroyed. The shots' boxes from the game's own table of them, the options' shots too |
 | Espgaluda II | enemy kinds 0 and 1 of 0x0C37D288 are what the shots hit (tested by 0x0C062BC0 against shot kinds 4 to 9, 12, 13: kind 12 the laser); one with no body (kind 15) of the same owner is drawn as ground (here also harmless enemies in the air, as most never hit the ship) |
 | Mushihimesama Futari (every version), Deathsmiles, MegaBlack Label | the later engine: the enemies' pass tests every member of body kinds 0, 1 and 21 whose +12 is set against shot kinds 4 to 15 (bit 1 of +27: shots pass through it); a member whose bit 0 is clear and whose owner has no body is ground (walking beetles; in Deathsmiles few: houses, as nearly every enemy also has a body box) |

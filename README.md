@@ -1,13 +1,13 @@
 # Spelunkomp
 
-Unofficial native ports of 26 of Cave's arcade shooting games (30 versions), from three of the boards they ran on (the CV1000, Cave's
+Unofficial native ports of 26 of Cave's arcade shooting games (31 versions), from three of the boards they ran on (the CV1000, Cave's
 68000 board and IGS's PGM), in one collection with one launcher, for macOS, Linux (the Steam Deck included), Windows
 and Android. Each game's code is translated to C++ ahead of time and runs on the board's hardware written fresh,
 with its board's speed and slowdown, and training tools on top. You supply the games.
 
 **[Join me on Discord](https://discord.gg/FSC9GZ6nm)**
 
-<p align="center"><img src="docs/screenshots/titles.jpg" width="100%" alt="The title screens of all 26 games, as the port draws them (the other four versions share their titles): Mazinger Z, DonPachi, Air Gallet, DoDonPachi, Dangun Feveron, ESP Ra.De. and Guwange; DoDonPachi II, Dai-Ou-Jou and Black Label, Ketsui, Espgaluda, Mushihimesama and Ibara; Espgaluda II, Pink Sweets, Ibara Kuro Black Label, Futari 1.5, Muchi Muchi Pork! and Deathsmiles; Futari Black Label, Deathsmiles MegaBlack Label, Dai-Fukkatsu 1.5 and Black Label, Akai Katana and SaiDaiOuJou"></p>
+<p align="center"><img src="docs/screenshots/titles.jpg" width="100%" alt="The title screens of all 26 games, as the port draws them (the other five versions share their titles): Mazinger Z, DonPachi, Air Gallet, DoDonPachi, Dangun Feveron, ESP Ra.De. and Guwange; DoDonPachi II, Dai-Ou-Jou and Black Label, Ketsui, Espgaluda, Mushihimesama and Ibara; Espgaluda II, Pink Sweets, Ibara Kuro Black Label, Futari 1.5, Muchi Muchi Pork! and Deathsmiles; Futari Black Label, Deathsmiles MegaBlack Label, Dai-Fukkatsu 1.5 and Black Label, Akai Katana and SaiDaiOuJou"></p>
 
 > **Beta.** Every game plays with sound and every feature below, with its board's speed and slowdown on by default.
 > The games are close to the boards, and where they have been measured the numbers are under [Accuracy](#accuracy);
@@ -23,7 +23,7 @@ The games' names are their owners' trademarks.
 
 | Board | Games |
 | --- | --- |
-| CV1000 | Mushihimesama, Ibara, Ibara Kuro Black Label, Espgaluda II, Pink Sweets, Mushihimesama Futari (Ver 1.0, Ver 1.5, Black Label and its 2009 Another Ver), Muchi Muchi Pork!, Deathsmiles and MegaBlack Label, DoDonPachi Dai-Fukkatsu (Ver 1.0, Ver 1.5 and Black Label), Akai Katana, DoDonPachi SaiDaiOuJou |
+| CV1000 | Mushihimesama (and its 2011 Cave Matsuri Ver 1.5), Ibara, Ibara Kuro Black Label, Espgaluda II, Pink Sweets, Mushihimesama Futari (Ver 1.0, Ver 1.5, Black Label and its 2009 Another Ver), Muchi Muchi Pork!, Deathsmiles and MegaBlack Label, DoDonPachi Dai-Fukkatsu (Ver 1.0, Ver 1.5 and Black Label), Akai Katana, DoDonPachi SaiDaiOuJou |
 | Cave's 68000 board | DonPachi (Japan Ver 1.01 and US Ver 1.12), DoDonPachi, Dangun Feveron, ESP Ra.De., Guwange; Mazinger Z and Air Gallet, which other companies made for it |
 | IGS's PGM | DoDonPachi Dai-Ou-Jou and Black Label, Ketsui, Espgaluda; DoDonPachi II: Bee Storm, which IGS made under licence from Cave |
 
