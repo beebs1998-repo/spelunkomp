@@ -9,7 +9,7 @@
 #   - A reference build of REF (origin/main) plays the same, and the two builds' per-frame hash logs must be
 #     byte-identical.
 # It builds what it needs, runs JOBS at a time, prints a table (set, run, frames, pass or FAIL, the first difference)
-# and exits non-zero on any difference.
+# and exits non-zero on any difference. A set with no ROM set in ROMS is skipped, and the table says so.
 #
 #   tools/shadow/full.sh ROMS [OUT]   (ROMS: the folder of the ROM sets, <id>.zip; OUT: build/shadow)
 #   env: JOBS=8 (runs at once), TIER=full or quick (quick: the check's recipe with and without the slowdown, and the
@@ -77,7 +77,14 @@ done
 # ---- The runs ----
 JOBLIST=$OUT/jobs.txt
 : > "$JOBLIST"
+skipped=0
 for set in $SETS; do
+    if [ ! -f "$ROMS/$set.zip" ] && [ ! -d "$ROMS/$set" ]; then
+        # (no ROM set for it here: said, not failed)
+        echo "$set - - skip no ROM set in $ROMS" > "$OUT/results/$set-skip.txt"
+        skipped=$((skipped + 1))
+        continue
+    fi
     for kind in recipe-native recipe-blocks recipe-off boss; do echo "$set $kind" >> "$JOBLIST"; done
     if [ "$TIER" = full ]; then
         stages=$("$OUT/bin/$set-shadow" --game "$ROOT/games/$set/game.cfg" --roms "$ROMS" --features list 2>/dev/null | sed -n 's/^start_stage \([0-9]*\)$/\1/p')
@@ -93,6 +100,7 @@ tr '\n' '\0' < "$JOBLIST" | xargs -0 -P "$JOBS" -I{} sh -c 'nice -n "$1" sh "$2"
 # ---- The full tier's runs of the game program (its shadow build): the training tools, and online rollback ----
 if [ "$TIER" = full ]; then
     for set in $SETS; do
+        [ -f "$OUT/results/$set-skip.txt" ] && continue
         out=$(cd "$ROOT" && BUILDS="$OUT/games" tools/check_tools.sh "$ROMS" "$set" 2>&1)
         if echo "$out" | grep -q FAIL; then
             echo "$set tools - FAIL $(echo "$out" | grep -m1 FAIL)" > "$OUT/results/$set-tools.txt"
@@ -119,15 +127,17 @@ fail=0
 for f in "$OUT"/results/*.txt; do
     read -r set run frames result rest < "$f"
     printf '%-10s %-14s %8s  %-5s %s\n' "$set" "$run" "$frames" "$result" "$rest"
-    [ "$result" = pass ] || fail=1
+    [ "$result" = pass ] || [ "$result" = skip ] || fail=1
 done
 expected=$(wc -l < "$JOBLIST" | tr -d ' ')
 got=$(ls "$OUT"/results/*.txt 2>/dev/null | wc -l | tr -d ' ')
-[ "$TIER" = full ] && expected=$((expected + 2 * $(echo $SETS | wc -w)))
+[ "$TIER" = full ] && expected=$((expected + 2 * ($(echo $SETS | wc -w) - skipped)))
+expected=$((expected + skipped))
 if [ "$got" -lt "$expected" ]; then
     echo "only $got of $expected runs gave a result"
     fail=1
 fi
 echo
+[ $skipped = 0 ] || echo "$skipped set(s) skipped: no ROM set"
 if [ $fail = 0 ]; then echo "shadow check passed: every run the same as the reference"; else echo "SHADOW CHECK FAILED"; fi
 exit $fail
