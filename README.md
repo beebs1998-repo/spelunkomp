@@ -14,6 +14,40 @@ with its board's speed and slowdown, and training tools on top. You supply the g
 > we're working on the rest. Not every game has been played through by hand, and the Android app has run only in
 > Android's emulator, not yet on a phone. Expect rough edges, and please [tell us what you find](#tell-us-what-is-different).
 
+## Accuracy at a glance
+
+buffi's [CV1000 benchmark](https://buffis.com/arcade/benchmarking-cv1000-pcb-vs-mame-and-mister/), run on a real
+board (an Ibara PCB) and in the port with its board's slowdown on, as it ships. The PCB, MiSTer and MAME columns are
+buffi's own results; thanks to buffi for the benchmark and the board's numbers.
+
+| test | PCB | Spelunkomp | MiSTer | MAME | Spelunkomp vs PCB |
+|---|---|---|---|---|---|
+| RAMP 8X8 SPR (@60) | 4800 | 4850 | 5650 | 4875 | +1.0% |
+| RAMP 8X8 STILL (@60) | 9085 | 9085 | 9085 | 9123 | 0 |
+| RAMP 32X32 SPR (@60) | 1170 | 1170 | 1170 | 1175 | 0 |
+| RAMP CPU LOGIC (@60) | 1503 | 1512 | 1769 | 2135 | +0.6% |
+| RAMP GAME (@60) | 1694 | 1694 | 1715 | 1701 | 0 |
+| BLIT LATENCY (µs avg) | 5 | 5 | 4 | 5 | 0 |
+| 8X8 SPRITES (kdraw/s) | 603 | 603 | 604 | 604 | 0 |
+| 32X32 SPRITES (kdraw/s) | 77 | 77 | 77 | 77 | 0 |
+| SCREEN COPY (Mpix/s) | 90.6 | 90.7 | 90.6 | 91.0 | +0.1% |
+| ALPHA 32X32 (kdraw/s) | 77 | 77 | 77 | 77 | 0 |
+| UPLOAD TO VRAM (kpix/s) | 5632 | 5653 | 8198 | 5665 | +0.4% |
+| GAME FRAME (fps) | 171.3 | 171.4 | 171.2 | 171.8 | +0.1% |
+| BLITTER PAIN (ms/round) | 19.7 | 20.0 | 19.7 | 19.9 | +1.5% |
+| CPU INTEGER (kiter/s) | 3656 | 3656 | 3937 | 4653 | 0 |
+| CPU DIVIDE (kdiv/s) | 1176 | 1190 | 1256 | 1304 | +1.2% |
+| CPU MEMORY (MB/s) | 20.1 | 19.9 | 19.7 | 14.7 | -1.0% |
+| CPU CACHE HIT (Mload/s) | 17.0 | 17.0 | 20.4 | 17.0 | 0 |
+| CPU FLUSH (µs/flush) | 886 | 885 | 734 | 604 | -0.1% |
+| CPU LIST BUILD (kdraw/s) | 352 | 355 | 431 | 368 | +0.9% |
+| CPU QUICKSORT (sorts/s) | 140 | 149 | 155 | 142 | +6.4% |
+
+Within 1.5% of the PCB on 19 of the 20 tests (BLITTER PAIN at +1.5%), the same as the PCB on 9; CPU QUICKSORT, at
++6.4%, is not explained yet. The SH-3's caches, bus and pipeline and the blitter are timed in the port, and fitted to
+buffi's results on the board. More, for all three boards, under [Accuracy](#accuracy); how shmupmame 5.4 does in the
+same board scenes: [docs/BOARD-VIDEO.md](docs/BOARD-VIDEO.md#shmupmame-in-the-same-scenes-2026-11-23).
+
 **No game files are included.** You need your own copy of each game: its arcade ROM set.
 
 This project is not affiliated with, endorsed by, or sponsored by Cave, IGS or any of the games' rights holders.
@@ -88,9 +122,8 @@ Accuracy to the arcade board comes first, and it is on by default: each game run
 board's slowdown. Faster or smoother play is a choice in the menu. Where each board stands, measured against real
 boards and the FPGA cores made from them:
 
-- **The CV1000**: buffi ran his CV1000 benchmark on a real board (an Ibara PCB), and the port runs the same program.
-  Over its 20 tests the port's mean error against the board is 0.8%, and it is within 2% on 19 of them; current MAME's
-  mean error is 7.5%, shmupmame 5.4's 27.7%. In play, against two Mushihimesama boards filmed at 60 pictures a second,
+- **The CV1000**: buffi's benchmark, on a real board, is under [Accuracy at a glance](#accuracy-at-a-glance): a mean
+  error of 0.7% against the board (current MAME's 7.5%, shmupmame 5.4's 27.7%). In play, against two Mushihimesama boards filmed at 60 pictures a second,
   stage 3 is late 303 frames on the port and 356 and 384 on the boards. A Futari Black Label board on video is late
   about 1.16 times as often as the port running the same 2007 Black Label program, on a busier route than the port's
   (1.17 times with the 2009 program: the version is not the difference).
