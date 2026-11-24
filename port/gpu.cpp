@@ -194,6 +194,8 @@ void Gpu::WriteAreas(const std::vector<VramArea> &areas, const uint16_t *pixels)
 void Gpu::GetVram(std::vector<uint16_t> &vram) {
     vram.resize(static_cast<size_t>(kW) * kH);
     Download(m_vram, 0, 0, kW, kH, vram.data(), static_cast<uint32_t>(vram.size() * 2));
+    // (64 MB that would otherwise stay: with rewind on, beside the timeline's own copy of VRAM, uncounted)
+    ShrinkDownload(0);
 }
 
 void Gpu::ReadScreen(uint32_t scrollX, uint32_t scrollY, uint32_t *out) {

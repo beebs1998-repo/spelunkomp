@@ -10,6 +10,7 @@
 
 #include <SDL3/SDL.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 
@@ -19,6 +20,11 @@ class GpuBase {
 public:
     bool Ok() const {
         return m_device != nullptr;
+    }
+    // The bytes of the transfer buffer that parts of textures are brought back through (the training tools' reads of
+    // VRAM keep it as large as the largest: the timeline counts it in its limit)
+    size_t DownloadBytes() const {
+        return m_download ? m_downloadSize : 0;
     }
     // The window in real pixels
     void OutputSize(int &width, int &height) const;
@@ -70,6 +76,9 @@ protected:
     void SubmitWork(SDL_GPUCommandBuffer *cmd);
     // Part of a texture brought back, waiting for the GPU
     void Download(SDL_GPUTexture *texture, int x, int y, int w, int h, void *out, uint32_t bytes);
+    // The transfer buffer let go when it is larger than `most` bytes (Gpu::GetVram: after a read of all of VRAM, 64 MB,
+    // which a save state or the timeline's beginning make only now and then, it is not kept for the small reads after)
+    void ShrinkDownload(uint32_t most);
     // Part of a texture brought back without waiting (the input lag readout's looks, port/main.cpp): StartRead puts the
     // copy on the GPU, into a buffer of its own (one of kReads), and returns at once; EndRead waits for it (by then, a
     // frame on, long done) and gives it. False: none started there

@@ -386,6 +386,14 @@ void GpuBase::UploadRows(SDL_GPUCopyPass *copy, SDL_GPUTexture *to, int x, int y
     SDL_UploadToGPUTexture(copy, &source, &region, false);
 }
 
+void GpuBase::ShrinkDownload(uint32_t most) {
+    if (m_download && m_downloadSize > most) {
+        SDL_ReleaseGPUTransferBuffer(m_device, m_download); // (SDL keeps it until the GPU is done with it)
+        m_download = nullptr;
+        m_downloadSize = 0;
+    }
+}
+
 void GpuBase::Download(SDL_GPUTexture *texture, int x, int y, int w, int h, void *out, uint32_t bytes) {
     if (bytes > m_downloadSize) {
         if (m_download) {

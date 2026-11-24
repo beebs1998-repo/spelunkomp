@@ -20,6 +20,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - **The host's own time a frame** (#18): the game's log (logs/game.log) says once a minute how long this machine took
   to make each frame (median, p95, the most, against the board's 16.7 ms), and the Speed readout has a new choice, **On,
   with the host's time**, that shows it beside the game's own speed: the board's slowdown told from the machine's.
+- **Rewind's memory as it says**: rewind is held to 384 MB, but it took about 450 MB on a Mac (the GPU's 64 MB buffer
+  it read VRAM back through, uncounted, and the gaps its moments left in the allocator). It now counts the buffer,
+  keeps it only as large as a moment's reads, and keeps its moments in one store of its own: about 370 MB in all at
+  the limit.
 
 ## 0.2.0-beta.1
 
