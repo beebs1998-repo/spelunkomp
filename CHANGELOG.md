@@ -8,6 +8,11 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - **The input lag readout no longer stutters.** It found the game's lag by running twenty unseen frames inside one
   frame every few seconds, which made that frame late on a slower machine. It now runs one of them in each frame
   shown, and measures less often once the number is steady. The numbers it shows are the same.
+- **No more stalls and memory growth on the way to a stage or boss** (#18): Begin at the stage and Straight to the
+  boss run the game unseen and show one picture in 20, and with the GPU renderer each of those pictures waited for the
+  20 frames of drawing queued before it (a quarter of a second on an Apple M4, far longer on small graphics), and
+  the game's memory reached 1.3 GB there (mmpork). The unseen frames are now held to a few frames in flight: no
+  stall, 0.7 GB, and the trip as fast as before.
 
 ## 0.2.0-beta.1
 
