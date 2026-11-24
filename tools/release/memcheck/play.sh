@@ -7,6 +7,8 @@
 #   mem_sample                    prints its memory now in KB: "RSS [VRAM]" (nothing if it could not be read); never
 #                                 waits long, whatever the program or its driver is doing
 #   ask_stop / force_stop         asks it to quit (SIGTERM: SDL's quit event, the game's own ending) / kills it
+#   ended                         (may) once alive has said no: 0 if it has truly ended (CODE set if it knows it), or
+#                                 1 if it is still running after all (the sampling goes on: alive was wrong)
 #   finish                        sets CODE (its exit status) once it has ended, and cleans up
 # then calls memcheck_all DIR ROMS WORK, which prints, for tools/release/memcheck.sh to judge:
 #   memory <what RSS is>          vram <what VRAM is> (when there is one)
@@ -68,30 +70,38 @@ run_case() {
     [ "${PID:-0}" != 0 ] || { echo "end $name no-start"; return 0; }
     t0=$(date +%s)
     got=$t0
-    while alive; do
-        now=$(date +%s)
-        s=$((now - t0))
-        mem=$(mem_sample)
-        kb=${mem%% *} vkb=""
-        [ "$mem" = "${mem#* }" ] || vkb=${mem#* }
-        if [ "${kb:-0}" -gt 0 ] 2>/dev/null; then # (none, or 0: it is ending)
-            mb=$((kb / 1024)) vmb=""
-            [ -z "$vkb" ] || vmb=$((vkb / 1024))
-            echo "sample $name $s $mb${vmb:+ $vmb}"
-            got=$now
-            if [ "$mb" -gt "$MEMCHECK_KILL_MB" ]; then status="killed:$mb"; fi
-            if [ -n "$vmb" ] && [ "$vmb" -gt "$MEMCHECK_KILL_VRAM_MB" ]; then status="killed-vram:$vmb"; fi
-        elif [ $((now - got)) -ge 10 ]; then
-            echo "error: no sample within 10 s ($name, pid $PID: $(sample_why))"
-            status=no-samples
-        fi
-        if [ -z "$status" ] && [ "$s" -gt 40 ] && [ ! -e "$T/start.png" ]; then status="no-progress:start.png@${s}s"; fi
-        if [ -z "$status" ] && [ "$s" -gt $((MEMCHECK_SECONDS * 3 / 4 + 30)) ] && [ ! -e "$T/middle.png" ]; then
-            status="no-progress:middle.png@${s}s"
-        fi
-        if [ -z "$status" ] && [ "$s" -gt $((MEMCHECK_SECONDS * 2 + 60)) ]; then status=timeout; fi
+    local resumed=0
+    while :; do
+        while alive; do
+            now=$(date +%s)
+            s=$((now - t0))
+            mem=$(mem_sample)
+            kb=${mem%% *} vkb=""
+            [ "$mem" = "${mem#* }" ] || vkb=${mem#* }
+            if [ "${kb:-0}" -gt 0 ] 2>/dev/null; then # (none, or 0: it is ending)
+                mb=$((kb / 1024)) vmb=""
+                [ -z "$vkb" ] || vmb=$((vkb / 1024))
+                echo "sample $name $s $mb${vmb:+ $vmb}"
+                got=$now
+                if [ "$mb" -gt "$MEMCHECK_KILL_MB" ]; then status="killed:$mb"; fi
+                if [ -n "$vmb" ] && [ "$vmb" -gt "$MEMCHECK_KILL_VRAM_MB" ]; then status="killed-vram:$vmb"; fi
+            elif [ $((now - got)) -ge 10 ]; then
+                echo "error: no sample within 10 s ($name, pid $PID: $(sample_why))"
+                status=no-samples
+            fi
+            if [ -z "$status" ] && [ "$s" -gt 40 ] && [ ! -e "$T/start.png" ]; then status="no-progress:start.png@${s}s"; fi
+            if [ -z "$status" ] && [ "$s" -gt $((MEMCHECK_SECONDS * 3 / 4 + 30)) ] && [ ! -e "$T/middle.png" ]; then
+                status="no-progress:middle.png@${s}s"
+            fi
+            if [ -z "$status" ] && [ "$s" -gt $((MEMCHECK_SECONDS * 2 + 60)) ]; then status=timeout; fi
+            [ -z "$status" ] || break
+            sleep 2
+        done
         [ -z "$status" ] || break
-        sleep 2
+        ended && break
+        # (still running after all: sampled on, three times at the most)
+        resumed=$((resumed + 1))
+        [ "$resumed" -lt 3 ] || { echo "error: $name: the liveness check kept disagreeing: stopped"; status=liveness; break; }
     done
     if [ -n "$status" ] && ! stop_gently "$name"; then
         echo "error: $name could not be stopped, even killed (stuck in its GPU driver?): no more runs on this machine;" \
@@ -101,10 +111,12 @@ run_case() {
         return 0
     fi
     finish
+    [ "$CODE" != stuck ] || status=stuck
     echo "end $name ${status:-exit:$CODE}"
     [ -z "$status" ] && [ "$CODE" = 0 ] || tail -5 "$T/out.txt" 2>/dev/null | sed "s/^/log $name /"
 }
 sample_why() { echo "no reading"; } # (a runner may say more)
+ended() { return 0; }                # (a runner may look again)
 
 memcheck_all() { # DIR ROMS WORK
     local game id title rewound=""

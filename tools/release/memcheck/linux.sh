@@ -53,14 +53,74 @@ launch() {
     done
     [ "${PID:-0}" != 0 ] || echo "error: $name's PID never came (systemctl --user status $UNIT)"
 }
-# (alive until it has ended: a zombie, Z, has, though a thread of it may still be held in the kernel)
-state() { [ "${PID:-0}" != 0 ] && timeout -s KILL 3 awk '{ sub(/^.*\) /, ""); print $1 }' "/proc/$PID/stat" 2>/dev/null; }
-alive() { local st; st=$(state) && [ -n "$st" ] && [ "$st" != Z ] && [ "$st" != X ]; }
+# Liveness, from two that must agree before the program is taken to have ended: the kernel's (its /proc/PID/stat,
+# read by bash itself: no awk, no timeout; the state is the field after the name, which may hold spaces and
+# parentheses, so after the last ") ") and systemd's (the unit's MainPID and SubState).
+proc_state() { # the state letter, or nothing if there is no such process
+    local line
+    [ "${PID:-0}" != 0 ] && read -r line 2>/dev/null < "/proc/$PID/stat" || return 0
+    line=${line##*) }
+    echo "${line%% *}"
+}
+unit_show() { timeout 5 systemctl --user show -p MainPID -p ActiveState -p SubState -p ExecMainStatus "$UNIT" 2>/dev/null | tr '\n' ' '; }
+unit_running() { # the unit says its program runs
+    local u
+    u=$(unit_show)
+    case "$u" in *"MainPID=0 "* | "") return 1 ;; esac
+    case "$u" in *SubState=running*) return 0 ;; esac
+    return 1
+}
+live_state() { case "$1" in "" | Z | X | x) return 1 ;; *) return 0 ;; esac; }
+diag() { # what the runner saw, for a log that explains itself
+    local line
+    read -r line 2>/dev/null < "/proc/$PID/stat" || line="(unreadable)"
+    echo "error: $1 ($UNIT): pid $PID; pid file '$(cat "$PIDFILE" 2>/dev/null)'; stat '${line:0:200}';" \
+        "wchan '$(cat "/proc/$PID/wchan" 2>/dev/null)'; unit $(unit_show); awk $(command -v awk || echo none)," \
+        "timeout $(command -v timeout || echo none)"
+}
+GONE_SAID=""
+alive() {
+    live_state "$(proc_state)" && return 0
+    unit_running && { [ "$GONE_SAID" = "$PID" ] || { diag "the process looked gone but its unit runs it: going on"; GONE_SAID=$PID; }; return 0; }
+    sleep 0.5 # (a second look, both, before it is taken as ended)
+    live_state "$(proc_state)" && return 0
+    unit_running && return 0
+    return 1
+}
+# Once alive has said no: ended when systemd has reaped it (MainPID 0) and has its status. Still running (R, S: any
+# state but D and Z) is not ended: alive was wrong, which is said, and the sampling goes on. Held in the kernel (D),
+# or a zombie still there after 20 s, is stuck: no more runs
+ended() {
+    local k st u
+    for ((k = 0; k < 40; k++)); do
+        u=$(unit_show)
+        case "$u" in
+            *"MainPID=0 "*)
+                CODE=$(echo "$u" | sed -n 's/.*ExecMainStatus=\([0-9]*\).*/\1/p')
+                CODE=${CODE:-unknown}
+                return 0 ;;
+        esac
+        st=$(proc_state)
+        if [ -z "$st" ] && [ "$k" -ge 10 ]; then # (no process for 5 s: the unit's MainPID lags; it has ended)
+            CODE=$(echo "$u" | sed -n 's/.*ExecMainStatus=\([0-9]*\).*/\1/p')
+            CODE=${CODE:-unknown}
+            echo "error: $UNIT still names pid $PID, which is gone: taken as ended (status ${CODE})"
+            return 0
+        fi
+        if [ -n "$st" ] && [ "$st" != D ] && [ "$st" != Z ]; then
+            diag "liveness check disagreed: the program is still running (state $st): sampling on"
+            return 1
+        fi
+        sleep 0.5
+    done
+    diag "the program has not ended after 20 s (state $(proc_state)): stuck; no more runs on this machine, it may need restarting"
+    CODE=stuck
+    STUCK=1
+    return 0
+}
 ask_stop() { kill -TERM "$PID" 2>/dev/null; }
 force_stop() { kill -KILL "$PID" 2>/dev/null; }
-sample_why() {
-    echo "state $(state || echo gone), status $(timeout -s KILL 3 grep -c . "/proc/$PID/status" 2>/dev/null || echo unreadable) lines"
-}
+sample_why() { echo "state $(proc_state), status $(timeout -s KILL 3 grep -c . "/proc/$PID/status" 2>/dev/null || echo unreadable) lines"; }
 
 # The GPU's memory. Per process: the sum, over the program's DRM file descriptors, of their fdinfo's VRAM lines
 # (drm-memory-vram, or drm-resident-vram, or drm-total-vram: the kernel's own names, by version), one count for each
@@ -99,7 +159,7 @@ vram_card() { # the card's VRAM in use, in KB (the biggest card's: the one that 
 # (mem_sample runs in a command substitution, a subshell: what it keeps between samples is kept in files)
 mem_sample() {
     local rss v k job
-    rss=$(timeout -s KILL 3 awk '/^VmRSS:/ {print $2}' "/proc/$PID/status" 2>/dev/null)
+    rss=$(while read -r k v _; do [ "$k" != VmRSS: ] || { echo "$v"; break; }; done 2>/dev/null < "/proc/$PID/status")
     [ -n "$rss" ] || return 0
     job=$(cat "$WORK/vram.job" 2>/dev/null)
     # (the reading before is still waiting: the driver is held; no other is started)
@@ -123,25 +183,7 @@ mem_sample() {
     [ -z "$v" ] || [ -e "$WORK/vram.kind" ] || { echo "$kind" > "$WORK/vram.kind"; echo "vram $kind" >&3; }
     echo "$rss${v:+ $v}"
 }
-# (ended: systemd has its exit status once it has reaped it, MainPID 0. A zombie never reaped, a thread of it held in
-# the driver, is stuck: no more runs)
-finish() {
-    local k main
-    CODE=stuck
-    for ((k = 0; k < 40; k++)); do
-        main=$(timeout 5 systemctl --user show -p MainPID --value "$UNIT" 2>/dev/null)
-        if [ "$main" = 0 ]; then
-            CODE=$(timeout 5 systemctl --user show -p ExecMainStatus --value "$UNIT" 2>/dev/null)
-            CODE=${CODE:-unknown}
-            break
-        fi
-        sleep 0.5
-    done
-    if [ "$CODE" = stuck ]; then
-        echo "error: $UNIT's program ended but was never reaped (held in its GPU driver?): no more runs on this machine;" \
-            "it may need restarting"
-        STUCK=1
-    fi
+finish() { # (CODE is ended's)
     timeout 10 systemctl --user --no-block stop "$UNIT" 2>/dev/null
     timeout 10 systemctl --user reset-failed "$UNIT" 2>/dev/null
 }
