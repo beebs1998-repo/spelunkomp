@@ -111,6 +111,14 @@ struct Facts {
         int bytes = 4; // (2: a word)
     };
     std::vector<Gauge> gauges;
+    // A gauge of the game's own kept full by a training feature of its own, after the ships' (Muchi Muchi Pork's lard
+    // meter, Espgaluda's gems): its name in settings.ini, title and description; the value it is held at (bytes: 1, 2, 4)
+    struct FullGauge {
+        std::string name, title, words;
+        uint32_t address, full;
+        int bytes = 2;
+    };
+    std::vector<FullGauge> fullGauges;
     // (a title of 22 characters at most: a longer one makes the menu's rows draw smaller on a picture stood up)
     std::string bombsTitle = "Bombs never run out", bombsWords = "The bombs are filled again as they are used.";
     // The count of frames the ship is still out of harm for after it appears (a word of safeFramesBytes bytes: 4, 2

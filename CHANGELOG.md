@@ -7,6 +7,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 - **99 save-state slots** (were 9): the menu's Slot row and F6/F7 go from 1 to 99, around both ways. States already
   saved in slots 1-9 load as before.
+- **Scoring readouts** (Training mode): a game's hidden counters written down the left of the picture, read from its
+  memory. The first: Muchi Muchi Pork!'s lard meter as a number. More games' to come (docs/TRAINING.md).
+- **Lard meter kept full** (Muchi Muchi Pork!) and **Gems kept full** (Espgaluda: 500, Kakusei for as long as you want
+  it), on the Training mode page.
 
 - **Scanline direction has Auto**, now the default (#28): with the picture stood up on a screen wider than tall, a
   shader's lines run across it; on a screen taller than wide, or As the cabinet, they run as on the cabinet. A Horizontal
