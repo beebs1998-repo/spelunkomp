@@ -5,6 +5,9 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **CRT Newpixie** on the Shader setting: RetroArch's newpixie-crt, a light CRT look with chromatic aberration,
+  ghosting, a little curvature and scanlines.
+
 ## 0.1.0-beta.1
 
 The first public version: 26 arcade shooting games (30 versions), Cave's and three made for its boards or under its licence, on

@@ -128,9 +128,11 @@ The presets are RetroArch's [slang-shaders](https://github.com/libretro/slang-sh
 files they use, in the app's `Resources/shaders` (`tools/shaders.py`). Each file's licence is its own, stated at its
 top: crt-geom-mini (after cgwg's crt-geom), CRT Royale (TroggleMonkey), CRT Guest (guest(r), Dr. Venom) and zfast-crt,
 CRT Light (Greg Hogan) GPL-2.0-or-later; CRT Lottes (Timothy Lottes), scanline-fract (hunterk) and
-sharp-bilinear-scanlines (rsn8887) public domain; xBRZ (Hyllian, Zenju) and ScaleFX (Sp00kyFox) and the blur and gamma
-includes MIT; the stock pass (libretro), ossc (DariusG) and integer-scaling-scanlines with no notice, and
-crt-geom-mini's linearize pass none either.
+sharp-bilinear-scanlines (rsn8887) public domain; CRT Newpixie (Mattias Gustavsson, adapted by hunterk) MIT or public
+domain (the Unlicense), whichever one chooses; xBRZ (Hyllian, Zenju) and ScaleFX (Sp00kyFox) and the blur and gamma
+includes MIT; the stock pass (libretro), ossc (DariusG), integer-scaling-scanlines and CRT Newpixie's frame picture
+(`crtframe.png`, not drawn unless its Use Frame Image parameter is turned on) with no notice, and crt-geom-mini's
+linearize pass none either.
 
 ## FPGA cores for MiSTer: the 68000 boards' bus (read, not copied)
 
