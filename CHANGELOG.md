@@ -5,6 +5,11 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+## 0.2.0-beta.1
+
+Mushihimesama Matsuri Ver 1.5 joins the collection (26 games, 31 versions), and your own shaders get one folder for every
+game, chosen by name.
+
 - **Mushihimesama Matsuri Ver 1.5**, the version Cave made for its 2011 Cave Matsuri festival (FinalBurn Neo's
   `matsuri15` set), as its own entry beside Mushihimesama, with every training feature and the hit boxes.
 - **Your own shaders, one folder for every game** (#16): the Shader setting's **Your own** now draws with a preset you
