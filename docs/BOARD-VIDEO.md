@@ -171,14 +171,19 @@ Each boss's death runs the same scene: a flash, the explosion, then black (the l
 is late 92 frames in it at every stage end, the same in every route. Timed from the flash to the black on both
 (board ±2 refreshes at each end):
 
-| scene | port refreshes (late) | board refreshes | board − port |
-|---|---|---|---|
-| stage 1 boss dies | 302 (92) | 300.1 | −1.9 |
-| stage 2 boss dies | 302 (92) | 298.1 | −3.9 |
-| stage 3 boss dies | 300 (92) | 292.1 | −7.9 |
-| stage 4 boss dies | 303 (92) | 302.1 | −0.9 |
-| last boss dies (to white) | 276 (138) | 268.1 | −7.9 |
-| stage 1 midboss dies | 82 late | 73.5 ± 1.5 late | −8.5 |
+| scene | port refreshes (late) | board refreshes | board − port | port late today (2026-11-23) |
+|---|---|---|---|---|
+| stage 1 boss dies | 302 (92) | 300.1 | −1.9 | 92 |
+| stage 2 boss dies | 302 (92) | 298.1 | −3.9 | 92 |
+| stage 3 boss dies | 300 (92) | 292.1 | −7.9 | 90 |
+| stage 4 boss dies | 303 (92) | 302.1 | −0.9 | 92 |
+| last boss dies (to white) | 276 (138) | 268.1 | −7.9 | 130 |
+| stage 1 midboss dies | 82 late | 73.5 ± 1.5 late | −8.5 | 82 |
+
+The first three columns are the port before the blitter's IRQ1 (2026-11-22). The last is today's port, which raises
+IRQ1 and so applies the game's 14 ms rule (below): on its route that rule now drops a refresh at the stage 3 boss (90,
+the board 84) and at the last boss (130 late, the board's 268.1 refreshes are 130.1 late: the same). Counted off fresh
+runs for "shmupmame in the same scenes" below.
 
 - The board is late a few frames **fewer** in every one: 4.5 on average of 92 (5%), 8.5 of 82 for the midboss
   (10%). Each one alone is within 2–3 times its error. All six on the same side is not likely by chance.
@@ -601,8 +606,11 @@ KidpandaAG's anchors (Aaron Kraten's differ by a few frames at each end):
 | 12,776-13,990 | 60 | 29 | 26 | 58 | 28 | 108 | 41 | 41 |
 | 13,990-14,593 | 15 | 23 | 0 | 0 | 0 | 0 | 0 | 0 |
 | 14,593-18,707 | 16 | 12 | 10 | 0 | 26 | 9 | 0 | 6 |
-| stage 3 | 358 | 384 | 303 | 372 | 174 | 518 | 333 | 204 |
+| stage 3 | 356 | 381 | 303 | 372 | 174 | 518 | 333 | 204 |
 
+- The board totals are the rows' sums: 356 for KidpandaAG, as over his own anchors in the table above (an earlier
+  version of this table said 358), and 381 for Aaron Kraten here, 384 over his own anchors above (his stretches end
+  a few frames apart). Elsewhere the boards are given as 356 and 384.
 - The port's own routes span 174-372 with one model; both boards fall inside. Where the boards and the port are late
   differs by route in both directions (7,090-8,587: the port's ship leaves a wave of large insects alive that both
   players kill; 9,789-10,197: both players are late, no port route but one is).
@@ -632,6 +640,87 @@ KidpandaAG's anchors (Aaron Kraten's differ by a few frames at each end):
 - Owlnonymous's Futari Black Label (above) agrees within 1 on the two scripted deaths checked.
 - Heavy play with a long list (where the rule drops refreshes) was not lined up on a board for Mushihimesama or
   Espgaluda II (Black Label: above, 2026-11-23); Mushihimesama's stage 3 above is mostly the over-the-edge draws, not the 14 ms rule.
+
+## shmupmame in the same scenes (2026-11-23)
+
+shmupmame 5.4 (its CV1000 timing: docs/plans/BENCHMARK.md, "Against shmupmame and MAME") run through the scenes
+above, with the port's inputs, and counted the same way. Late frames, board against port against shmupmame:
+
+| scene | board | port | shmupmame 5.4 | shmupmame, the posted CPU setting |
+|---|---|---|---|---|
+| Futari 1.5, stage 1 midboss dies | 73.5 ± 1.5 | 82 | 82 | 142 (37%) |
+| Futari 1.5, stage 1 boss dies | 90 | 92 | 92 | 92 (37%) |
+| Futari 1.5, stage 2 boss dies | 88 | 92 | 92 | runs into the slowdown around it |
+| Futari 1.5, stage 3 boss dies | 84 | 90 | 92 | as above |
+| Futari 1.5, stage 4 boss dies | 91 | 92 | 92 | as above |
+| Futari 1.5, last boss dies (to white) | 130 | 130 | 138 | as above |
+| Futari Black Label, stage 1 to the boss fight, the player's route (13.9-113.1 s) | 255 | 72-148 | 47-136 | 622-1,101 (37%) |
+| of it, 53.7-61.7 s | 78 | 56-65 | 31-54 | 139-174 |
+| of it, 93.8-113.1 s | 78 | 0-12 | 0-2 | 120-420 |
+| Mushihimesama, stage 3 (two boards; three port routes) | 356, 384 | 204, 333, 518 | 33, 72, 142 | 4,092-5,701 (37.6%) |
+| DFK 1.5, stage 1 boss dies | 188 (377 refreshes) | 182 (364) | 180 (358) | 324 (513; 43%) |
+
+- **Scripted scenes: shmupmame is the port without the blitter's IRQ1.** In every Futari 1.5 death its late frames
+  are the port's refresh for refresh as the port was before it raised IRQ1 (docs/SLOWDOWN.md, "The blitter's
+  interrupt"); MAME's CV1000 never raises IRQ1, so the game's 14 ms rule never drops a refresh. Where the rule acts on
+  the port's route (stage 3, the last boss) the port is closer to the board (90 and 130 against 84 and 130; shmupmame
+  92 and 138); elsewhere the two are equal. DFK's boss death: 180 against the port's 182 and the board's 188 ± 10,
+  the same within the board's error.
+- **In play, shmupmame slows down less than the port and further from the boards**, in every scene measured.
+  Mushihimesama's stage 3: 33-142 on the three routes against the boards' 356 and 384 (the port 204-518; its left
+  route, 333, is the nearest of all). Black Label's replayed stage 1: 47-136 against the board's 255 (the port
+  72-148); in the two stretches the port already falls short in, shmupmame falls shorter. DFK's stage 1 (game frame
+  4,000 to the boss's death): 531 against the port's 613 (the board's ~703 counts from another start, "A second
+  game" above).
+- **With the CPU settings players post, shmupmame is far too slow**: 2-4 times the board's late frames in Black
+  Label's stage 1, 11-15 times the boards' in Mushihimesama's stage 3, and late in calm stretches where no board and
+  no port route is (Mushihimesama's first 2,600 game frames of stage 3: boards 14 and 2, port 4, shmupmame 2, at
+  37.6% 331-362), and Futari 1.5's whole run late 19,548 refreshes at 37% against 2,082 at
+  100% (the port 3,172). Those numbers were set for builds without shmupmame's cache model, which already slows the
+  CPU, and with the blitter delay knob that MAME no longer has; only their CPU half can be set.
+- So nowhere here is shmupmame closer to a board than the port. In the scripted scenes it is as close or a few frames
+  further; in busy play it is further, and it is the port's route-to-route spread that overlaps the boards, not
+  shmupmame's.
+
+**The settings used** (the community's per-game CPU overclock, from search-engine excerpts; the forums refuse
+automated fetches, so the posts' dates and builds could not be read): Futari Black Label 37% (blitter delay 56,
+lr-mame2016; retropie.org.uk, "[Pi 4] Cave CV1000 Performance Thread"); Mushihimesama 37.6% (blitter 56%;
+shmups.system11.org, "Slowdown accuracy for cv1k games on MAME is almost perfect"); Futari 1.5 37% (blitter 56,
+lr-mame2016, the same RetroPie thread; the system11 thread gives 38% for Futari 1.0 and 1.5); DFK 1.5 43% (blitter
+59, the same RetroPie thread; another post there 36%). The scale is set as the slider sets it (docs/plans/BENCHMARK.md).
+
+### How it was run, and how comparable it is
+
+- **The emulator:** shmupmame 5.4's CV1000 source over MAME 0.275, cv1k only (the build of docs/plans/BENCHMARK.md;
+  its timing is the release's, checked against the Linux binary there). Headless, `-video none -sound none
+  -nothrottle`, a fresh NVRAM, the same ROM sets. Its refresh is MAME's 60.024 Hz (the board 60.0184).
+- **The inputs:** an `-autoboot_script` (Lua) plays the port runs' inputs of the sections above. They are given by
+  game frame (refreshes with a list started, from power-on), as `SPELUNK_ROUTE` gives its steps: the boot is late a
+  different number of refreshes in MAME, so presses by refresh would land elsewhere. The port's features are done the
+  same way: free play (the credits byte kept at 1), out of harm (the same word written before every refresh), the
+  start at stage 3 (debugger breakpoints at the two routines that take the stage, replacing it as the port's
+  `start_stage` does).
+- **The route replay:** done, the same as the port's: the Lua script reads the same route files and pokes the ship's
+  position (and, for the counter-poked variants, the counter) at each game frame, with the same buttons. The five route
+  variants of "the player's route replayed" (keep, laser, shot, and the two with the counter poked) give the ranges.
+  It replays as well as on the port; the board's own run is still not reproduced.
+- **The counting:** shmupmame's own frame timing: a refresh is late when the game started no blitter list in it (a
+  write tap on the blitter's start register), the port's `SPELUNK_LATE_LOG` rule. Checked on its pictures: in play
+  every late refresh is followed by a picture equal to the one before and no other picture repeats; and an
+  `-aviwrite` recording of Black Label's first 6,400 refreshes on the laser route, counted with `repeats.py held`,
+  gives the late log's 0, 31 and 10 over the three stretches it covers. The board figures are those of the sections
+  above (Futari 1.5's from its table, late = the board's refreshes less the scene's game frames); the port's are
+  fresh runs of today's port where the late log was old (Futari 1.5, Mushihimesama's centre route) and the logs
+  above otherwise (the same as a fresh run where checked).
+- **Same inputs, not the same game.** The two runs start a stage at the same game frame (Mushihimesama's score is the
+  same at game frame 5,000), then part slowly: the score is 0.1-2% apart by the stage's end, Black Label's midboss
+  dies 7 game frames later, Futari 1.5's bosses die from a few to a few hundred game frames apart over a whole
+  game. Windows were placed by game frame (Mushihimesama, Black Label) or on the scene itself (the deaths), so a few
+  late frames can fall on the other side of a window's edge. With the posted settings the game falls far behind,
+  and Futari's later deaths run into the slowdown around them, so they are not separable.
+- **The board's program:** Black Label as in "Black Label in heavy play": futaribl (2009), the board's is 2007.
+- Data: spelunkomp-data/video/shmupmame_scenes (the Lua script, schedules, late logs of both sides). No ROM, video or
+  emulator build is kept in this repository.
 
 ## What is left
 
