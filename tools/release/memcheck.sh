@@ -5,14 +5,21 @@
 # game of every way the picture is made, for 2 minutes each (MEMCHECK_SECONDS), with the scripted play of
 # memcheck/play.sh (coin, Start, free play, the shot held, the stick from side to side): mmpork (CV1000-B), ddpsdoj
 # (CV1000-D), ddonpach (the Cave 68000 boards), ket (PGM), then ddpsdoj again with rewind on. Each program's memory is
-# logged every 2 s: private bytes on Windows, RSS on Linux and macOS. The three systems run at once (about 10 minutes);
-# Windows and Linux by ssh (the runners in memcheck/ are copied over first), macOS on this Mac.
+# logged every 2 s: private bytes on Windows, RSS on Linux and macOS; and the GPU's memory where there is a way to read
+# it: on Linux the program's VRAM from its DRM fdinfo (or the card's, less what it was before the run, on an older
+# kernel), on Windows its dedicated GPU memory from the GPU Process Memory counters (the Mac's GPU shares its memory).
+# The three systems run at once (about 10 minutes); Windows and Linux by ssh (the runners in memcheck/ are copied over
+# first), macOS on this Mac.
 #
-# A run fails if its program's memory goes over 1 GB (MEMCHECK_LIMIT_MB), if it keeps climbing after its first 30 s,
-# or if the program does not end by itself, with status 0, after its frames. Climbing: the most it had in its last
-# 30 s is more than the most it had from 30 to 60 s by over 64 MB or a tenth, whichever is more (a game's memory goes
-# up and down a little with its scenes; a leak keeps going). The rewind run is held to the 1 GB alone: rewind fills a
-# minute of moments, so it climbs, by design, for its first minute.
+# A run fails if its program's memory goes over 1 GB (MEMCHECK_LIMIT_MB) or its VRAM over 1.5 GB
+# (MEMCHECK_VRAM_LIMIT_MB), if either keeps climbing after its first 30 s, or if the program does not end by itself,
+# with status 0, after its frames. Climbing: the most it had in its last 30 s is more than the most it had from 30 to
+# 60 s by over 64 MB or a tenth, whichever is more (a game's memory goes up and down a little with its scenes; a leak
+# keeps going). The rewind run's memory is held to the 1 GB alone: rewind fills a minute of moments, so it climbs, by
+# design, for its first minute. A run is stopped (asked to quit, given 10 s, killed only then) if: its memory passes
+# 2 GB or its VRAM 3 GB; no sample comes for 10 s; its pictures do not come (the one 5 s after the title by 40 s, the
+# one halfway by three quarters of the run and 30 s); or it is still going at twice its time and a minute. A program
+# that cannot be stopped even so (held in its GPU driver) ends that machine's runs: it may need restarting.
 #
 #   tools/release/memcheck.sh [--dry-run | --judge] [win] [linux] [mac]   (none named: every one set below; --dry-run
 #                                prints the commands, runs none; --judge judges the logs of the last run again)
@@ -31,6 +38,7 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 HERE="$ROOT/tools/release/memcheck"
 OUT="${MEMCHECK_OUT:-$ROOT/build/memcheck}"
 LIMIT="${MEMCHECK_LIMIT_MB:-1024}"
+VLIMIT="${MEMCHECK_VRAM_LIMIT_MB:-1536}"
 GAMES="${MEMCHECK_GAMES:-mmpork ddpsdoj ddonpach ket}"
 # (the runners are given each game's title frame, game.cfg's, as ID:TITLE: memcheck/play.sh)
 MEMCHECK_GAMES=$(for id in $GAMES; do
@@ -151,40 +159,53 @@ if [ "$JUDGE" = 0 ]; then
     done
 fi
 
-# The verdicts: system, run, peak, end, pass or fail and why
-printf '\n%-6s %-16s %8s %8s  %s\n' system game peak end result
+# The verdicts: system, run, peak, end (memory; and VRAM, where it was measured), pass or fail and why
+printf '\n%-6s %-16s %8s %8s %8s %8s  %s\n' system game peak end "vram pk" "vram end" result
 for s in "${SYSTEMS[@]}"; do
-    awk -v sys="$s" -v limit="$LIMIT" -v secs="$MEMCHECK_SECONDS" -v want="$GAMES" -v rewind="$MEMCHECK_REWIND" '
-    function verdict(n,   why, a, b, margin, i) {
+    awk -v sys="$s" -v limit="$LIMIT" -v vlimit="$VLIMIT" -v secs="$MEMCHECK_SECONDS" -v want="$GAMES" -v rewind="$MEMCHECK_REWIND" '
+    function add(w, x) { return w ? w "; " x : x }
+    # (climbing: the most of the last 30 s over the most of 30 to 60 s by more than 64 MB or a tenth; column 1 the
+    # memory, 2 the VRAM)
+    function climbing(n, col, what,   a, b, i, margin) {
+        if (!((n, col) in w3060)) return ""
+        a = w3060[n, col]; b = 0
+        for (i = 1; i <= cnt[n]; i++) if (T[n, i] >= last[n] - 30 && ((n, i, col) in M) && M[n, i, col] > b) b = M[n, i, col]
+        margin = a / 10 > 64 ? a / 10 : 64
+        return b > a + margin ? what "climbing: " a " MB at 30-60 s, " b " MB in the last 30 s" : ""
+    }
+    function verdict(n,   why, c, vp, ve) {
         why = ""
         if (!(n in endst)) why = "no end (runner stopped)"
         else if (endst[n] != "exit:0") why = endst[n]
-        if (peak[n] > limit) why = (why ? why "; " : "") "over " limit " MB"
+        if (peak[n, 1] > limit) why = add(why, "over " limit " MB")
+        if ((n, 2) in peak && peak[n, 2] > vlimit) why = add(why, "VRAM over " vlimit " MB")
         if (why == "" && last[n] < secs - 10) why = "ended at " last[n] " s"
-        if (n !~ /\+rewind$/ && n in a3060) {
-            a = a3060[n]; b = 0
-            for (i = 1; i <= cnt[n]; i++) if (T[n, i] >= last[n] - 30 && M[n, i] > b) b = M[n, i]
-            margin = a / 10 > 64 ? a / 10 : 64
-            if (b > a + margin) why = (why ? why "; " : "") "climbing: " a " MB at 30-60 s, " b " MB in the last 30 s"
-        }
+        if (n !~ /\+rewind$/ && (c = climbing(n, 1, ""))) why = add(why, c) # (rewind: its minute of moments fills)
+        if ((c = climbing(n, 2, "VRAM "))) why = add(why, c)
         if (cnt[n] == 0 && why == "") why = "no samples"
-        printf "%-6s %-16s %5d MB %5d MB  %s\n", sys, n, peak[n], endmb[n], why ? "FAIL (" why ")" : "pass"
+        vp = (n, 2) in peak ? sprintf("%5d MB", peak[n, 2]) : "-"; ve = (n, 2) in endv ? sprintf("%5d MB", endv[n, 2]) : "-"
+        printf "%-6s %-16s %5d MB %5d MB %8s %8s  %s\n", sys, n, peak[n, 1], endv[n, 1], vp, ve, why ? "FAIL (" why ")" : "pass"
         return why == ""
     }
     function bad_line() { if (++perr <= 3) pex[perr] = FNR ": " $0 }
     function known(n) { if (n in seen) return 1; bad_line(); return 0 }
+    function value(n, c, col, v) {
+        M[n, c, col] = v; endv[n, col] = v
+        if (!((n, col) in peak) || v > peak[n, col]) peak[n, col] = v
+        if (T[n, c] >= 30 && T[n, c] < 60 && (!((n, col) in w3060) || v > w3060[n, col])) w3060[n, col] = v
+    }
     # (a run on Windows comes back with CRLF lines: the CR is dropped, from the line and its fields)
     { sub(/\r+$/, "") }
-    NF == 0 || $1 == "memory" || $1 == "log" { next }
+    NF == 0 || $1 == "memory" || $1 == "vram" || $1 == "log" { next }
     $1 ~ /^(error|warning):$/ { notes[++nn] = $0; next }
-    $1 == "case" && NF == 2 { if (!($2 in seen)) { seen[$2] = 1; order[++k] = $2; cnt[$2] = 0; peak[$2] = 0; endmb[$2] = 0; last[$2] = 0 }; next }
-    $1 == "sample" && NF == 4 && $3 ~ /^[0-9]+$/ && $4 ~ /^[0-9]+$/ {
+    $1 == "case" && NF == 2 { if (!($2 in seen)) { seen[$2] = 1; order[++k] = $2; cnt[$2] = 0; peak[$2, 1] = 0; endv[$2, 1] = 0; last[$2] = 0 }; next }
+    $1 == "sample" && (NF == 4 || NF == 5) && $3 ~ /^[0-9]+$/ && $4 ~ /^[0-9]+$/ && (NF == 4 || $5 ~ /^[0-9]+$/) {
         n = $2
         if (!known(n)) next
         if ($4 + 0 == 0) next
-        c = ++cnt[n]; T[n, c] = $3 + 0; M[n, c] = $4 + 0; last[n] = $3 + 0; endmb[n] = $4 + 0
-        if ($4 + 0 > peak[n]) peak[n] = $4 + 0
-        if ($3 >= 30 && $3 < 60 && (!(n in a3060) || $4 + 0 > a3060[n])) a3060[n] = $4 + 0
+        c = ++cnt[n]; T[n, c] = $3 + 0; last[n] = $3 + 0
+        value(n, c, 1, $4 + 0)
+        if (NF == 5) value(n, c, 2, $5 + 0)
         next
     }
     $1 == "end" && NF == 3 { if (known($2)) endst[$2] = $3; next }
@@ -194,7 +215,7 @@ for s in "${SYSTEMS[@]}"; do
         split(want, g, " "); for (i in g) expect[g[i]] = 1
         if (rewind != "none") expect[rewind "+rewind"] = 1
         for (i = 1; i <= k; i++) { if (!verdict(order[i])) bad = 1; delete expect[order[i]] }
-        for (n in expect) { printf "%-6s %-16s %8s %8s  FAIL (not run)\n", sys, n, "-", "-"; bad = 1 }
+        for (n in expect) { printf "%-6s %-16s %8s %8s %8s %8s  FAIL (not run)\n", sys, n, "-", "-", "-", "-"; bad = 1 }
         if (perr) {
             printf "%-6s PARSE ERROR: %d line(s) of %s.log not understood, as:\n", sys, perr, sys; bad = 1
             for (i = 1; i <= perr && i <= 3; i++) printf "         line %s\n", pex[i]
@@ -205,7 +226,8 @@ for s in "${SYSTEMS[@]}"; do
 done
 for s in "${SYSTEMS[@]}"; do
     m=$(tr -d '\r' < "$OUT/$s.log" | sed -n 's/^memory //p' | head -1)
-    [ -z "$m" ] || echo "$s: $m"
+    v=$(tr -d '\r' < "$OUT/$s.log" | sed -n 's/^vram //p' | head -1)
+    [ -z "$m" ] || echo "$s: memory: $m${v:+; VRAM: $v}"
 done
 [ "$status" = 0 ] && echo "memory check passed" || echo "MEMORY CHECK FAILED (logs: $OUT)"
 exit "$status"

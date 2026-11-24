@@ -17,6 +17,7 @@ param(
     [int]$Seconds = 120,
     [string]$Rewind = 'ddpsdoj',
     [int]$KillMB = 2048,
+    [int]$KillVramMB = 3072,
     [switch]$Inner
 )
 $ErrorActionPreference = 'Stop'
@@ -46,7 +47,7 @@ if (-not $Inner) {
     $log = Join-Path $Work 'log.txt'; $done = Join-Path $Work 'done.txt'
     $line = 'powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File ' + ((
             (Join-Path $Work 'win.ps1'), '-Inner', '-Dir', $Dir, '-Roms', $Roms, '-Work', $Work, '-Games', $Games,
-            '-Seconds', "$Seconds", '-Rewind', $Rewind, '-KillMB', "$KillMB") | ForEach-Object { Quote $_ }) -join ' '
+            '-Seconds', "$Seconds", '-Rewind', $Rewind, '-KillMB', "$KillMB", '-KillVramMB', "$KillVramMB") | ForEach-Object { Quote $_ }) -join ' '
     Set-Content -Encoding ASCII (Join-Path $Work 'run.cmd') "@$line > `"$Work\inner.txt`" 2>&1"
     # (schtasks' /tr: a path without spaces, the short one)
     $run = (New-Object -ComObject Scripting.FileSystemObject).GetFile((Join-Path $Work 'run.cmd')).ShortPath
@@ -81,17 +82,42 @@ function Say([string]$s) { # (the ssh side may be reading it: tried again)
     # (LF lines, as play.sh's; the ssh side prints them with Windows' CRLF all the same: the driver drops the CR)
     for ($k = 0; $k -lt 20; $k++) { try { [IO.File]::AppendAllText($log, "$s`n"); return } catch { Start-Sleep -Milliseconds 100 } }
 }
-function PlayArgs([int]$s, [int]$t) { # (play.sh's play_args)
-    $frames = $t + $s * 60
-    $a = @('--frames', "$frames", '--real-time', '--mute', '--window-shot', "$($t + $s * 30):$T\middle.png", '--window-shot', "$($frames - 120):$T\late.png")
-    $credits = @(($t + 60), ($t + 900)); for ($c = $t + 1800; $c -lt $frames; $c += 3000) { $credits += $c }
+# (PowerShell's names are the same in either case: $T, the run's folder, is $dir here, and the title's frame $tf)
+function PlayArgs([int]$secs, [int]$tf, [string]$dir) { # (play.sh's play_args)
+    $frames = $tf + $secs * 60
+    $a = @('--frames', "$frames", '--real-time', '--mute', '--window-shot', "$($tf + 300):$dir\start.png",
+        '--window-shot', "$($tf + $secs * 30):$dir\middle.png", '--window-shot', "$($frames - 120):$dir\late.png")
+    $credits = @(($tf + 60), ($tf + 900)); for ($c = $tf + 1800; $c -lt $frames; $c += 3000) { $credits += $c }
     foreach ($c in $credits) { $a += @('--system', "$($c):5:0x04", '--system', "$($c + 100):5:0x10", '--system', "$($c + 200):5:0x10", '--system', "$($c + 300):5:0x10") }
     $i = 0
-    for ($c = $t + 60; $c -lt $frames; $c += 90) {
+    for ($c = $tf + 60; $c -lt $frames; $c += 90) {
         if ($i % 2) { $stick = '0x08' } else { $stick = '0x04' }
         $a += @('--press', "$($c):85:0x10", '--press', "$($c):90:$stick"); $i++
     }
     return $a
+}
+# The program's dedicated GPU memory in MB, from the GPU Process Memory counters (Windows 10 1709 on; English names),
+# or $null where they are not to be had (a program has none before its GPU device is made; asked no more after five
+# failures with no success, the counters not there)
+$script:gpuFails = 0; $script:gpuSeen = $false
+function GpuMB([int]$id) {
+    if (-not $script:gpuSeen -and $script:gpuFails -ge 5) { return $null }
+    try {
+        $c = Get-Counter -Counter "\GPU Process Memory(pid_$($id)_luid*)\Dedicated Usage" -ErrorAction Stop
+        $script:gpuSeen = $true
+        return [int](($c.CounterSamples | Measure-Object CookedValue -Sum).Sum / 1MB)
+    } catch { $script:gpuFails++; return $null }
+}
+# (play.sh's stop_gently: asked to quit first, its window closed (SDL's quit event, the game's own ending), then
+# taskkill without /F; 10 s to end; killed only then; $false if it has not ended 20 s after even that)
+function StopGently($p, [string]$name) {
+    $ErrorActionPreference = 'Continue' # (taskkill's complaints are not this script's errors)
+    try { $asked = $p.CloseMainWindow() } catch { $asked = $false }
+    if (-not $asked) { & taskkill /pid $p.Id 2>&1 | Out-Null }
+    if ($p.WaitForExit(10000)) { return $true }
+    Say "error: $name did not quit within 10 s of being asked: killed"
+    & taskkill /f /pid $p.Id 2>&1 | Out-Null
+    return $p.WaitForExit(20000)
 }
 function RunCase([string]$name, [string]$id, [int]$title, [string]$features) {
     $T = Join-Path $Work $name
@@ -100,32 +126,51 @@ function RunCase([string]$name, [string]$id, [int]$title, [string]$features) {
     $exe = Join-Path $Dir "$id.exe"
     if (-not (Test-Path $exe)) { Say "end $name missing"; return }
     $a = @('--roms', (Join-Path $Roms "$id.zip"), '--settings', (Join-Path $T 'settings.ini'), '--saves', (Join-Path $T 'saves'),
-        '--features', $features) + (PlayArgs $Seconds $title)
+        '--features', $features) + (PlayArgs $Seconds $title $T)
     $p = Start-Process $exe -WorkingDirectory $Dir -PassThru -ArgumentList ((@($a) | ForEach-Object { Quote $_ }) -join ' ') `
         -RedirectStandardOutput (Join-Path $T 'out.txt') -RedirectStandardError (Join-Path $T 'err.txt')
     $null = $p.Handle # (so that ExitCode is there once it has exited)
-    $t0 = Get-Date; $status = ''
+    $t0 = Get-Date; $got = $t0; $status = ''
     while (-not $p.HasExited) {
-        $s = [int]((Get-Date) - $t0).TotalSeconds
-        $mb = 0; try { $p.Refresh(); $mb = [int]($p.PrivateMemorySize64 / 1MB); if ($mb -gt 0) { Say "sample $name $s $mb" } } catch {}
-        if ($mb -gt $KillMB) { $status = "killed:$mb"; Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue; break }
-        if ($s -gt $Seconds * 2 + 60) { $status = 'timeout'; Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue; break }
-        Start-Sleep 2
+        $tick = Get-Date; $s = [int]($tick - $t0).TotalSeconds
+        $mb = 0; try { $p.Refresh(); $mb = [int]($p.PrivateMemorySize64 / 1MB) } catch {}
+        if ($mb -gt 0) {
+            $vmb = GpuMB $p.Id
+            if ($null -ne $vmb -and -not $script:saidVram) { Say 'vram the program''s dedicated GPU memory (GPU Process Memory counters)'; $script:saidVram = $true }
+            if ($null -ne $vmb) { Say "sample $name $s $mb $vmb" } else { Say "sample $name $s $mb" }
+            $got = Get-Date
+            if ($mb -gt $KillMB) { $status = "killed:$mb" }
+            if ($null -ne $vmb -and $vmb -gt $KillVramMB) { $status = "killed-vram:$vmb" }
+        } elseif (((Get-Date) - $got).TotalSeconds -ge 10) {
+            Say "error: no sample within 10 s ($name, pid $($p.Id))"; $status = 'no-samples'
+        }
+        if (-not $status -and $s -gt 40 -and -not (Test-Path "$T\start.png")) { $status = "no-progress:start.png@$($s)s" }
+        if (-not $status -and $s -gt [int]($Seconds * 3 / 4) + 30 -and -not (Test-Path "$T\middle.png")) { $status = "no-progress:middle.png@$($s)s" }
+        if (-not $status -and $s -gt $Seconds * 2 + 60) { $status = 'timeout' }
+        if ($status) { break }
+        $left = 2000 - [int]((Get-Date) - $tick).TotalMilliseconds
+        if ($left -gt 0) { Start-Sleep -Milliseconds $left }
+    }
+    if ($status -and -not (StopGently $p $name)) {
+        Say "error: $name could not be stopped, even killed (stuck in its GPU driver?): no more runs on this machine; it may need restarting"
+        Say "end $name $status+stuck"; $script:stuck = $true; return
     }
     $p.WaitForExit()
     if (-not $status) { $status = "exit:$($p.ExitCode)" }
     Say "end $name $status"
     if ($status -ne 'exit:0') { Get-Content (Join-Path $T 'err.txt'), (Join-Path $T 'out.txt') -Tail 5 -ErrorAction SilentlyContinue | ForEach-Object { Say "log $name $_" } }
 }
+$script:stuck = $false; $script:saidVram = $false
 try {
     Say 'memory private bytes (Process.PrivateMemorySize64)'
     $rewound = -1
     foreach ($game in ($Games -split '\s+' | Where-Object { $_ })) {
         $id, $title = $game -split ':', 2; if (-not $title) { $title = 0 }
         RunCase $id $id $title 'free_play=1'
+        if ($script:stuck) { break }
         if ($id -eq $Rewind) { $rewound = [int]$title }
     }
-    if ($rewound -ge 0) { RunCase "$Rewind+rewind" $Rewind $rewound 'free_play=1,rewind=1' }
+    if ($rewound -ge 0 -and -not $script:stuck) { RunCase "$Rewind+rewind" $Rewind $rewound 'free_play=1,rewind=1' }
 } catch {
     Say "log task $_"
 } finally {

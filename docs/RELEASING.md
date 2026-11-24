@@ -73,8 +73,10 @@ with (the script stops if there is none), the downloads, how to install on each 
 5. **Run the memory check** against the new downloads on Windows, Linux and macOS: `tools/release/memcheck.sh`, from
    this Mac. Each system plays mmpork (CV1000-B), ddpsdoj (CV1000-D), ddonpach (Cave 68000) and ket (PGM) for 2
    minutes each, and ddpsdoj again with rewind on, all three systems at once (about 10 minutes). A run fails if its
-   program goes over 1 GB, keeps climbing after its first 30 s, or does not end by itself; the script prints a table
-   and exits non-zero on any failure. Unpack each download on its machine first, with the ROM sets there; the
+   program goes over 1 GB (its VRAM, where it can be read: over 1.5 GB), keeps climbing after its first 30 s, or does
+   not end by itself; the script prints a table and exits non-zero on any failure. A run going wrong is stopped early
+   (asked to quit first); a program held in its GPU driver ends that machine's runs, and the machine may need
+   restarting before the next. Unpack each download on its machine first, with the ROM sets there; the
    Windows user logged in at the desktop (the games are started by a scheduled task in that session), the Linux
    machine in its desktop session (gamescope's on a Steam Machine or Deck). Say where each is:
 
