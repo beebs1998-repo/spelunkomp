@@ -5,6 +5,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **99 save-state slots** (were 9): the menu's Slot row and F6/F7 go from 1 to 99, around both ways. States already
+  saved in slots 1-9 load as before.
 - **Online play has its own service**, spelunkomp-online (`online/`, a copy of cps2recomp's), no longer cps2recomp's:
   the lobby, the waiting room and the codes are Spelunkomp's alone. Play online with this version on both sides.
 - **Follow the finger** on Android, the touch controls' new way to move: put a finger down anywhere away from the
