@@ -44,6 +44,13 @@ public:
     }
     // Off (the Touch controls feature): never shown, never pressed
     void Allow(bool allowed);
+    // A finger asked first, shown or not, allowed or not: true takes it from the controls (the open in-game menu's
+    // taps, port/main.cpp, so that it answers a finger even with the controls off)
+    std::function<bool(const SDL_Event &event, float x, float y)> before;
+    // One of the controls' buttons drawn under (x, y), in the window's pixels
+    bool OnButton(float x, float y) const {
+        return Shown() && !m_idle && Hit(x, y) >= 0;
+    }
     // Where player 1's ship is now, upright as the cabinet stood it (the stick's up its up), in the board's pixels;
     // false: none in play. And a step across the window (its pixels) in those pixels
     struct Ship {

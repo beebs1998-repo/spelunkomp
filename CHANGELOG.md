@@ -5,6 +5,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **The in-game menu answers a finger** on Android, whether the touch controls are on or off: tap a row to choose
+  it, slide up or down to move through the rows. With the touch controls turned off and no gamepad, there was no
+  way back to them; now a tap on Touch controls turns them on again. The touch controls' own buttons still work
+  as before while the menu is open.
 - **99 save-state slots** (were 9): the menu's Slot row and F6/F7 go from 1 to 99, around both ways. States already
   saved in slots 1-9 load as before.
 - **Online play has its own service**, spelunkomp-online (`online/`, a copy of cps2recomp's), no longer cps2recomp's:
