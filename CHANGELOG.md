@@ -5,6 +5,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **A crash leaves its log.** A game's output reached `logs/game.log` only in blocks, so a crash lost it and the
+  launcher's report pointed at an empty log. It is now written as it goes, and on Windows a crash adds where it
+  happened and the calls that led there (the build's unstripped programs and `tools/release/crash_where.sh` name them).
+
 ## 0.1.0-beta.1
 
 The first public version: 26 arcade shooting games (30 versions), Cave's and three made for its boards or under its licence, on
