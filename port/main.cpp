@@ -13,9 +13,9 @@
 // it), F5 / F9 save and load a state, F6 / F7 the slot before and after, P pause, O a frame on while paused (as do
 // Tab and a gamepad's right trigger, fast forward's, while paused), - and = slower and faster, F11 or Alt+Enter full
 // screen, F12 a screenshot (the saves folder's screenshots/). A key a control has been given (the launcher's
-// Controllers page) does only that. Gamepads: the first two are players 1 and 2; Guide, the left stick's click, or
-// Start and Select together, opens the menu and closes it. The menu's own controls and the mouse:
-// recomp-common/menu_sdl.h.
+// Controllers page) does only that. Gamepads: the first two are players 1 and 2; Guide or Start and Select together
+// opens the menu and closes it (the launcher's Menu button can add the left stick's click, or leave only Start and
+// Select: recomp-common/menu_buttons.h). The menu's own controls and the mouse: recomp-common/menu_sdl.h.
 //
 // Input lag (docs/LAG.md): the host's devices are read when the game reads its ports (once a frame, in its vertical
 // sync interrupt), not at the top of the host's loop, and each frame is shown as soon as it is done.
@@ -1380,7 +1380,7 @@ int main(int argc, char **argv) {
             say("SCREENSHOT NOT SAVED");
         }
     };
-    // (Esc, F1, Guide, the left stick's click, Start and Select: the menu opened, or closed at once from any page)
+    // (Esc, F1, the gamepad's menu buttons, Start and Select: the menu opened, or closed at once from any page)
     auto toggleMenu = [&]() {
         if (menu.IsOpen()) {
             menu.Close();
@@ -1924,6 +1924,10 @@ int main(int argc, char **argv) {
                     handleChosen(menu.Buttons(pressed));
                 }
             }
+        } else if (netOn && !netScreen.Typing() && chord.Step(controls.pads, 2)) {
+            // (in a match, Start and Select together ask "Leave the match?" as Esc does, and take it back: a gamepad whose
+            // Guide Steam has, with no other menu button, can still leave)
+            netScreen.leaving = !netScreen.leaving;
         }
         followShader();
         followShape();

@@ -18,6 +18,10 @@ new CRT shader.
 - **A crash leaves its log.** A game's output reached `logs/game.log` only in blocks, so a crash lost it and the
   launcher's report pointed at an empty log. It is now written as it goes, and on Windows a crash adds where it
   happened and the calls that led there (the build's unstripped programs and `tools/release/crash_where.sh` name them).
+- **The left stick's click no longer opens the menu** unless you ask for it: a gamepad's Guide, or Start and Select
+  together, open it now. The launcher's Controllers page has a **Menu button** setting to choose: Guide, left-stick
+  click or Start+Select; Guide or Start+Select; or Start+Select only. Start and Select together always open it (Steam
+  often takes Guide on a Steam Deck), and in an online match they ask Leave the match?. Esc and F1 are unchanged.
 - **CRT Newpixie** on the Shader setting: RetroArch's newpixie-crt, a light CRT look with chromatic aberration,
   ghosting, a little curvature and scanlines.
 

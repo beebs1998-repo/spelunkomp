@@ -8,6 +8,8 @@
 #include "hud.h"
 #include "netplay.h"
 
+#include "../recomp-common/menu_sdl.h"
+
 #include <SDL3/SDL.h>
 
 #include <cstdint>
@@ -167,7 +169,10 @@ public:
             }
             return false;
         }
-        if ((key && !e.key.repeat && (code == SDL_SCANCODE_ESCAPE || code == SDL_SCANCODE_F1)) || pad == SDL_GAMEPAD_BUTTON_LEFT_STICK) {
+        // (a gamepad's: the in-game menu's buttons, as the player chose them on the launcher's Controllers page; Start and
+        // Select together are port/main.cpp's, with the menu's)
+        if ((key && !e.key.repeat && (code == SDL_SCANCODE_ESCAPE || code == SDL_SCANCODE_F1)) ||
+            (button && recomp::sdl::MenuButton(static_cast<SDL_GamepadButton>(pad)))) {
             leaving = true;
             return true;
         }

@@ -81,8 +81,8 @@ it); over the internet, the host's public address with UDP port 7845 forwarded t
 - **Chat**: press T (or a gamepad's right stick click), type a line and press Enter (Esc puts it away). The last few
   lines show at the bottom left for a few seconds. It goes straight from one game to the other. While you type, the
   keyboard is the chat's; a gamepad still plays.
-- **Leaving**: Esc (or the left stick's click) asks **Leave the match?** over the game, which goes on; Enter leaves,
-  Esc stays.
+- **Leaving**: Esc (or a gamepad's menu button, as the launcher's Menu button has it; Start and Select together
+  always) asks **Leave the match?** over the game, which goes on; Enter (or A) leaves, Esc (or B) stays.
 - **Coming back after a drop**: if the other player's game closes or their connection drops, the host's game waits for
   them again with the same code; a joining player whose connection dropped is taken back to the host by itself. The
   two then begin again from the board's power-on.
