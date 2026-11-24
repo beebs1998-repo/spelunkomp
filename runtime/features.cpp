@@ -40,13 +40,18 @@ namespace {
               "Scanlines: strong", "Scanlines: OSSC", "Scanlines: dark", "xBRZ", "ScaleFX", "Your own"},
              {kShaderIds, kShaderIds + kShaderCount},
              {kShaderNumbered, kShaderNumbered + sizeof kShaderNumbered / sizeof kShaderNumbered[0]}},
+            // (kept by name: before Auto, 0 was Vertical, the default, and 1 Horizontal. An old 0 is read as Auto, the
+            // default now, and 1 as Horizontal; Vertical is written with no number, which an older build reads as its
+            // default, Vertical)
             {"scanline_direction", "Display", "Scanline direction",
-             "Which way a shader's lines run in a game made for a monitor on its side. Vertical: as on the cabinet, whose "
-             "monitor was turned on its side, so its lines run up and down the picture (the shader draws the board's "
-             "picture as it sends it, and that is then stood up). Horizontal: the picture stood up first and then shaded, "
-             "so the lines run across the screen. A game made for an upright monitor (Akai Katana, Deathsmiles) is the "
-             "same either way.",
-             0, {"Vertical", "Horizontal"}},
+             "Which way a shader's lines run in a game made for a monitor on its side. Auto: as the screen is shaped. The "
+             "picture stood up on a screen wider than tall, the lines run across it, as on an ordinary monitor; on a screen "
+             "taller than wide (one turned on its side, a phone held upright) or As the cabinet, they run as on the cabinet. "
+             "Vertical: always as on the cabinet, whose monitor was turned on its side, so its lines run up and down the "
+             "picture (the shader draws the board's picture as it sends it, and that is then stood up). Horizontal: always "
+             "the picture stood up first and then shaded, so the lines run across the screen. A game made for an upright "
+             "monitor (Akai Katana, Deathsmiles) is the same any way.",
+             0, {"Auto", "Vertical", "Horizontal"}, {"auto", "vertical", "horizontal"}, {"auto", "horizontal"}},
             {"run_ahead", "Game", "Run-ahead",
              "Takes out lag the game itself has. These games show the result of a press some frames after it; with run-ahead "
              "the port runs the game that many frames further each frame, unseen, and shows that picture, so the screen answers "

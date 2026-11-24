@@ -5,6 +5,9 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **Scanline direction has Auto**, now the default (#28): with the picture stood up on a screen wider than tall, a
+  shader's lines run across it; on a screen taller than wide, or As the cabinet, they run as on the cabinet. A Horizontal
+  chosen before is kept; the old default, Vertical, becomes Auto.
 - **CRT Newpixie sits with the other CRT shaders** in the Shader list (after CRT Light), no longer at the end after
   Your own. The Shader choice and the in-game menu's shorter list of shaders are now kept by name in settings.ini
   (`shader_id = crt-newpixie`), so a later change of order changes nothing. A settings.ini from an earlier release is

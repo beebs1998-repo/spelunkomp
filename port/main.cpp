@@ -1960,12 +1960,17 @@ int main(int argc, char **argv) {
     auto presentPicture = [&]() {
         if (shading) {
             // Through the shader: the board's picture as it sends it, the shader's drawing then stood up (the lines
-            // along the game's own, as on the cabinet's turned monitor); or (Scanline direction: Horizontal) stood up
-            // first, so the lines run across the screen. The tools' writing over it, not through the shader
+            // along the game's own, as on the cabinet's turned monitor); or (Scanline direction: Horizontal, or Auto on
+            // a screen wider than tall) stood up first, so the lines run across the screen. The tools' writing over it, not through the shader
             const int turn = turnNow();
             touchLayer();
             shading->keepLast = !windowShotNow.empty();
-            if (features[linesAt] == 1 && turn) {
+            // (Auto: across on a screen wider than tall, the cabinet's way on one shaped like the cabinet's)
+            int ow = 0, oh = 0;
+            SDL_GetWindowSizeInPixels(window, &ow, &oh);
+            const int lines = features[linesAt];
+            const bool across = lines == 2 || (lines == 0 && ow > oh);
+            if (across && turn) {
                 Turn(picture.data(), turn, 1, standing, standingW, standingH);
                 shading->Show(standing.data(), standingW, standingH, place(), true, 0, true);
             } else {
