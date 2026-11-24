@@ -5,6 +5,11 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **CRT Newpixie sits with the other CRT shaders** in the Shader list (after CRT Light), no longer at the end after
+  Your own. The Shader choice and the in-game menu's shorter list of shaders are now kept by name in settings.ini
+  (`shader_id = crt-newpixie`), so a later change of order changes nothing. A settings.ini from an earlier release is
+  read as it was and rewritten in the new form once, and the old number is still written beside the name, so an
+  earlier release opening the file picks the same shader.
 - **The input lag readout no longer stutters.** It found the game's lag by running twenty unseen frames inside one
   frame every few seconds, which made that frame late on a slower machine. It now runs one of them in each frame
   shown, and measures less often once the number is steady. The numbers it shows are the same.
