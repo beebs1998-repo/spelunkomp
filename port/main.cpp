@@ -1280,6 +1280,7 @@ int main(int argc, char **argv) {
         };
         mc.confirmName = recomp::sdl::kConfirmName;
         mc.closeName = recomp::sdl::kCloseName;
+        mc.slots = 99; // (save states: a tester asked for more than 9)
         // The standard layout (recomp-common/menu_layout.h): Online, Display, Game first; Alternative modes; the states;
         // the board's own rows; Reset all options, Reset game, Quit game, Resume. Speed and Mute on the Game page
         recomp::layout::Rows rows;

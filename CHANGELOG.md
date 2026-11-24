@@ -5,6 +5,9 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **99 save-state slots** (were 9): the menu's Slot row and F6/F7 go from 1 to 99, around both ways. States already
+  saved in slots 1-9 load as before.
+
 - **Scanline direction has Auto**, now the default (#28): with the picture stood up on a screen wider than tall, a
   shader's lines run across it; on a screen taller than wide, or As the cabinet, they run as on the cabinet. A Horizontal
   chosen before is kept; the old default, Vertical, becomes Auto.
