@@ -5,6 +5,11 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **Follow the finger** on Android, the touch controls' new way to move: put a finger down anywhere away from the
+  buttons and the ship moves as it moves, the same distance on the screen, from where the ship is (not to under
+  the finger, which would hide it), as some of Cave's own phone ports played. The ship's place is read from the
+  game's own memory and the stick pushed toward where the finger says each frame, let go within half the ship's
+  step. On by default; the on-screen stick is still there (Controls page: Touch movement, Stick).
 - **Scanline direction has Auto**, now the default (#28): with the picture stood up on a screen wider than tall, a
   shader's lines run across it; on a screen taller than wide, or As the cabinet, they run as on the cabinet. A Horizontal
   chosen before is kept; the old default, Vertical, becomes Auto.
