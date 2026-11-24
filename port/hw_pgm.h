@@ -20,6 +20,7 @@
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <memory>
 #include <string>
 #include <vector>
@@ -221,6 +222,58 @@ struct Hw {
     void EndAhead() {
         board->PutBack();
     }
+    // The input lag readout's looks (port/main.cpp), spread over the frames shown: the board as it is now set aside
+    // twice (LookKeep: the moment both of a look's runs start from), then, a frame at a time between the game's own,
+    // the board and one of them changing places (LookIn), a frame run unseen with the sound chip held and its picture
+    // drawn and read (LookFrame), and the two changing back (LookOut), the game's own picture drawn again. Nothing of
+    // a look's frames is left in the game's state, nor in what is shown.
+    void LookKeep() {
+        board->SetAside(m_looks[0]);
+        m_lookCopy = true; // (the second copy at the first frame of the look: the two copies not both in one frame)
+    }
+    void LookIn(int which) {
+        if (m_lookCopy) {
+            m_looks[1] = m_looks[0];
+            m_lookCopy = false;
+        }
+        board->Trade(m_looks[which], true);
+    }
+    void LookFrame(int read) {
+        board->RunFrame();
+        Render(true);
+        LookRead(read);
+    }
+    // (the picture of a look's frame, read without waiting for the GPU: asked for a frame on, by then long done;
+    // `read`: one of two at once)
+    bool LookReady(int read) {
+        return !useGpu || gpu.ReadDone(read);
+    }
+    bool LookScreen(int read, uint32_t *out) {
+        if (useGpu) {
+            return gpu.EndScreenRead(read, out);
+        }
+        std::memcpy(out, m_lookScreens[read].data(), m_lookScreens[read].size() * 4);
+        return true;
+    }
+    std::vector<uint32_t> m_lookScreens[2];
+    void LookRead(int read) {
+        if (useGpu) {
+            gpu.StartScreenRead(read);
+        } else {
+            m_lookScreens[read].resize(static_cast<size_t>(kWidth) * kHeight);
+            board->Picture(m_lookScreens[read].data());
+        }
+    }
+    void LookOut(int which) {
+        board->Trade(m_looks[which], false);
+        Render(true);
+    }
+    void LookDrop() {
+        m_looks[0] = {};
+        m_looks[1] = {};
+    }
+    Pgm::Aside m_looks[2];
+    bool m_lookCopy = false;
     // Online play's rollback (port/netplay.h): the whole board kept exactly (the sound chips with it) and put back,
     // and a frame run unseen (no picture made: the next shown frame makes its own)
     // (two moments at once, `which`: the anchor and the next one)

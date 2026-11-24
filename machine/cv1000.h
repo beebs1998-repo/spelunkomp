@@ -76,6 +76,18 @@ public:
     void KeepNow(bool exact = false, int which = 0);
     void PutBack(int which = 0);
     void Drop(int which);
+    // The input lag readout's looks (port/main.cpp), run a frame at a time between the game's own: the board as it is
+    // now set aside (SetAside: main RAM, the small state, and VRAM where the software blitter draws; the GPU's VRAM is
+    // the port's), and later the board and a moment set aside changing places (Trade), so that a frame can be run on
+    // from the moment while the game's own state waits, and they change back. Pages of translated code that differ
+    // between the two are compared with their translations again, as at PutBack. `hold`: the sound chip stands still
+    // (the game only writes to it), as in run-ahead's frames.
+    struct Aside {
+        std::vector<uint8_t> ram, small;
+        std::vector<uint16_t> vram;
+    };
+    void SetAside(Aside &to);
+    void Trade(Aside &with, bool hold);
     void SerializeSmall(Archive &ar);
     // A moment of play kept and gone back to (runtime/timeline.h): everything but main RAM and VRAM's pixels into
     // `out`; and the board set to such a moment, with the RAM it had then
@@ -95,7 +107,7 @@ public:
     void PortWrite(unsigned port, uint8 value) override;
 
 private:
-    std::vector<uint8_t> m_kept[2], m_keptRam[2];
+    std::vector<uint8_t> m_kept[2], m_keptRam[2], m_traded;
     bool m_keptExact[2] = {};
     uint8_t m_soundRegister = 0;
     uint64_t m_blitterDone = 0; // the CPU cycle the blitter is ready again at

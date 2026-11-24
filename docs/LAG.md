@@ -63,6 +63,17 @@ picture. With it on, the game's state is the same as without (checked: DoDonPach
 hash after 6,000 frames). It reads 3 frames in both: the frame that reads the press and the 2 after it that
 tools/lag.sh finds.
 
+A look is spread over the frames shown (issue #17: run in one frame, its twenty unseen frames made that frame several
+times as long, and on a slower machine late: a stutter every few seconds). The moment is set aside twice (main RAM and
+the small state, the CV1000's VRAM as a texture of its own on the GPU; the whole state on the 68000 board and the
+PGM), and then each frame shown runs one frame of one of the two runs, by turns, before the game's own: the board and
+the moment change places, the frame is run with the sound chip held, and they change back, the game's own picture
+drawn again. Its picture is read back from the GPU without waiting, and looked at a frame later; while the GPU is
+still behind with it, the look waits a frame rather than holding this one up. A frame shown so has at most one
+frame's work more. The runs' pictures are the ones they had in one go, so the numbers are the same (and the game's
+state, frame for frame, the same with the readout on as off). Once five tries agree it looks once a minute instead
+of every 4 seconds, and again soon when play resumes after two seconds out of it (a new game, a continue).
+
 ## Sound
 
 How long after the game makes a sound the system's sound output has it. The board makes its sound as the frame goes;

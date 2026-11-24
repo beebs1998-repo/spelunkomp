@@ -1300,59 +1300,41 @@ int main(int argc, char **argv) {
     // and pushed the other way), unseen as run-ahead's frames are, every few seconds: the first frame whose picture is
     // not the same; the value most tries give. Run-ahead's frames off that. The port's: from a key or button going down
     // (the event's own time) to the frame that has it handed to the screen. What the screen adds is not known here.
+    // A look is spread over the frames shown (issue #17: all of it in one frame made that frame late on a slower
+    // machine, a stutter every few seconds): the moment is set aside twice (hw.LookKeep), and then each frame shown
+    // runs one frame of one of the two runs, by turns, before the game's own (hw.LookIn, LookFrame, LookOut), so no
+    // frame has more than one frame's work more. The runs' pictures are the same as when they were run in one go, so
+    // the readout's numbers are too. Once the last tries all agree it looks less often; again soon when play resumes
+    // (a new game, a continue).
     constexpr int kLagFrames = 10, kLagTries = 5;
+    constexpr uint64_t kLagEvery = 240, kLagSteadyEvery = 3600, kLagAway = 120;
     struct Lag {
-                int found[kLagTries] = {}, tries = 0, game = 0; // (game: 0 until found)
+        int found[kLagTries] = {}, tries = 0, game = 0; // (game: 0 until found)
         uint64_t nextAt = 0;
         bool wasOn = false;
         uint64_t pressedAt = 0; // (ns; 0: no press waiting to be shown)
         double portMs = 0;
         int presses = 0;
+        // (the look under way: its frames run so far, both runs together, by turns; 0: none)
+        int look = 0;
+        uint64_t lookAt = 0, plain[kLagFrames] = {};
+        uint32_t held[3] = {};
+        uint64_t away = 0; // (frames out of play since play was last seen)
     } lag;
     const size_t inputLagAt = FeatureIndex(ToolkitFeature::InputLag);
     auto lagOn = [&]() { return inputLagAt < features.size() && features[inputLagAt] != 0; };
-    auto lagMeasure = [&]() {
-        std::vector<uint32_t> screen(static_cast<size_t>(Hw::kWidth) * Hw::kHeight);
-        uint64_t plain[kLagFrames] = {};
-        const uint32_t heldBefore[3] = {board->inputs[0], board->inputs[1], board->system};
-        const uint32_t still[3] = {heldBefore[0], heldBefore[1], 0}, pushed[3] = {heldBefore[0] ^ kInRight, heldBefore[1], 0};
-        const uint32_t *forcedBefore = controls.forced;
-        int found = 0;
-        for (int way = 0; way < 2 && !found; way++) {
-            const uint32_t *these = way ? pushed : still;
-            controls.forced = these;
-            hw.BeginAhead();
-            for (int n = 0; n < kLagFrames; n++) {
-                board->inputs[0] = these[0];
-                board->inputs[1] = these[1];
-                board->system = these[2];
-                controls.readThisFrame = false;
-                if (ThisGame().beforeFrame) {
-                    ThisGame().beforeFrame(*board, features);
-                }
-                hw.AheadFrame();
-                hw.ReadScreen(screen.data());
-                uint64_t h = 0xCBF29CE484222325ull;
-                for (uint32_t p : screen) {
-                    h = (h ^ p) * 0x100000001B3ull;
-                }
-                if (!way) {
-                    plain[n] = h;
-                } else if (h != plain[n]) {
-                    found = n + 1;
-                    break;
-                }
+    auto lagSteady = [&]() {
+        if (lag.tries < kLagTries) {
+            return false;
+        }
+        for (int i = 1; i < kLagTries; i++) {
+            if (lag.found[i] != lag.found[0]) {
+                return false;
             }
-            hw.EndAhead();
         }
-        controls.forced = forcedBefore;
-        controls.readThisFrame = false;
-        board->inputs[0] = heldBefore[0];
-        board->inputs[1] = heldBefore[1];
-        board->system = heldBefore[2];
-        if (!found) {
-            return;
-        }
+        return true;
+    };
+    auto lagFound = [&](int found) {
         lag.found[lag.tries++ % kLagTries] = found;
         // (the value most tries gave; of two as common, the smaller)
         int best = 0, bestCount = 0;
@@ -1369,8 +1351,75 @@ int main(int argc, char **argv) {
         lag.game = best;
         if (getenv("SPELUNK_REPORT_LAG")) {
             fprintf(stderr, "input lag: frame %llu: the game shows a press %d frames on (try %d; most often %d)\n",
-                    static_cast<unsigned long long>(frameCount), found, lag.tries, lag.game);
+                    static_cast<unsigned long long>(lag.lookAt), found, lag.tries, lag.game);
         }
+    };
+    // (a look begun: the moment set aside, and the controls held then, which both runs start from)
+    auto lagBegin = [&]() {
+        lag.held[0] = board->inputs[0];
+        lag.held[1] = board->inputs[1];
+        lag.held[2] = board->system;
+        lag.lookAt = frameCount;
+        hw.LookKeep();
+        lag.look = 1; // (the next frame shown runs its first frame)
+    };
+    std::vector<uint32_t> lagScreen(static_cast<size_t>(Hw::kWidth) * Hw::kHeight);
+    // (a look's frame's picture, read a frame after it was run (the GPU not waited for): to the run with the stick
+    // as held, or compared with it)
+    auto lagPicture = [&](int step) {
+        const int way = step % 2, n = step / 2;
+        if (!hw.LookScreen(step % 2, lagScreen.data())) {
+            lag.look = 0;
+            return;
+        }
+        uint64_t h = 0xCBF29CE484222325ull;
+        for (uint32_t p : lagScreen) {
+            h = (h ^ p) * 0x100000001B3ull;
+        }
+        if (!way) {
+            lag.plain[n] = h;
+        } else if (h != lag.plain[n]) {
+            lag.look = 0;
+            lagFound(n + 1);
+        } else if (n + 1 == kLagFrames) {
+            lag.look = 0; // (the stick changed nothing in the picture: no try)
+        }
+    };
+    // (one frame of the look: the run with the stick as held, or the one with it pushed, by turns; after the
+    // picture of the one before is looked at)
+    auto lagStep = [&]() {
+        const int step = lag.look - 1;
+        if (step > 0 && !hw.LookReady((step - 1) % 2)) {
+            return; // (the GPU not yet done with the frame before: the next frame shown, then, not this one held up)
+        }
+        if (step > 0) {
+            lagPicture(step - 1);
+            if (!lag.look) {
+                return;
+            }
+        }
+        const int way = step % 2;
+        const uint32_t still[3] = {lag.held[0], lag.held[1], 0}, pushed[3] = {lag.held[0] ^ kInRight, lag.held[1], 0};
+        const uint32_t *these = way ? pushed : still;
+        const uint32_t heldBefore[3] = {board->inputs[0], board->inputs[1], board->system};
+        const uint32_t *forcedBefore = controls.forced;
+        controls.forced = these;
+        hw.LookIn(way);
+        board->inputs[0] = these[0];
+        board->inputs[1] = these[1];
+        board->system = these[2];
+        controls.readThisFrame = false;
+        if (ThisGame().beforeFrame) {
+            ThisGame().beforeFrame(*board, features);
+        }
+        hw.LookFrame(step % 2);
+        hw.LookOut(way);
+        controls.forced = forcedBefore;
+        controls.readThisFrame = false;
+        board->inputs[0] = heldBefore[0];
+        board->inputs[1] = heldBefore[1];
+        board->system = heldBefore[2];
+        lag.look++;
     };
     auto lagLine = [&](int ahead) {
         char text[96];
@@ -1582,6 +1631,7 @@ int main(int argc, char **argv) {
             hw.Attach();
             hw.ToolsLost();
             booting = skipBoot();
+            lag.look = 0; // (a look under way: let go)
         }
     };
     // (an online match: the boot run here and now on both sides, from the power-on both have, before the match's first
@@ -2367,11 +2417,20 @@ int main(int argc, char **argv) {
         if (lagOn() != lag.wasOn) {
             lag = {};
             lag.wasOn = lagOn();
+            hw.LookDrop();
         }
-        if (lag.wasOn && !unseen && !booting && !replaying && !fast && !checkVideo && frameCount >= lag.nextAt &&
-            (!ThisGame().playing || ThisGame().playing(*board))) {
-            lag.nextAt = frameCount + (lag.tries < kLagTries ? 240 : 1800);
-            lagMeasure();
+        if (lag.wasOn && !unseen && !booting && !replaying && !fast && !checkVideo) {
+            const bool inPlay = !ThisGame().playing || ThisGame().playing(*board);
+            if (inPlay && lag.away >= kLagAway) {
+                lag.nextAt = std::min(lag.nextAt, frameCount); // (back in play after a while out of it: a look soon)
+            }
+            lag.away = inPlay ? 0 : lag.away + 1;
+            if (lag.look) {
+                lagStep();
+            } else if (frameCount >= lag.nextAt && inPlay) {
+                lag.nextAt = frameCount + (lag.tries < kLagTries || !lagSteady() ? kLagEvery : kLagSteadyEvery);
+                lagBegin();
+            }
         }
         bool lateFrame = false;
         if (netOn) {

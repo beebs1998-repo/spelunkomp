@@ -241,6 +241,17 @@ void GpuBase::Close() {
             SDL_ReleaseGPUTransferBuffer(m_device, b);
         }
     }
+    for (int i = 0; i < kReads; i++) {
+        if (m_readFences[i]) {
+            SDL_ReleaseGPUFence(m_device, m_readFences[i]);
+        }
+        if (m_reads[i]) {
+            SDL_ReleaseGPUTransferBuffer(m_device, m_reads[i]);
+        }
+        m_readFences[i] = nullptr;
+        m_reads[i] = nullptr;
+        m_readSizes[i] = 0;
+    }
     if (m_fullVertex) {
         SDL_ReleaseGPUShader(m_device, m_fullVertex);
     }
@@ -351,6 +362,53 @@ void GpuBase::Download(SDL_GPUTexture *texture, int x, int y, int w, int h, void
     SDL_ReleaseGPUFence(m_device, fence);
     std::memcpy(out, SDL_MapGPUTransferBuffer(m_device, m_download, false), bytes);
     SDL_UnmapGPUTransferBuffer(m_device, m_download);
+}
+
+void GpuBase::StartRead(int which, SDL_GPUTexture *texture, int x, int y, int w, int h, uint32_t bytes) {
+    if (m_readFences[which]) {
+        // (one started before and never ended: waited for, and let go)
+        SDL_WaitForGPUFences(m_device, true, &m_readFences[which], 1);
+        SDL_ReleaseGPUFence(m_device, m_readFences[which]);
+        m_readFences[which] = nullptr;
+    }
+    if (bytes > m_readSizes[which]) {
+        if (m_reads[which]) {
+            SDL_ReleaseGPUTransferBuffer(m_device, m_reads[which]);
+        }
+        m_readSizes[which] = bytes;
+        SDL_GPUTransferBufferCreateInfo info{};
+        info.usage = SDL_GPU_TRANSFERBUFFERUSAGE_DOWNLOAD;
+        info.size = bytes;
+        m_reads[which] = SDL_CreateGPUTransferBuffer(m_device, &info);
+    }
+    SDL_GPUCommandBuffer *cmd = SDL_AcquireGPUCommandBuffer(m_device);
+    SDL_GPUCopyPass *copy = SDL_BeginGPUCopyPass(cmd);
+    SDL_GPUTextureRegion region{};
+    region.texture = texture;
+    region.x = static_cast<Uint32>(x);
+    region.y = static_cast<Uint32>(y);
+    region.w = static_cast<Uint32>(w);
+    region.h = static_cast<Uint32>(h);
+    region.d = 1;
+    SDL_GPUTextureTransferInfo to{};
+    to.transfer_buffer = m_reads[which];
+    to.pixels_per_row = static_cast<Uint32>(w);
+    to.rows_per_layer = static_cast<Uint32>(h);
+    SDL_DownloadFromGPUTexture(copy, &region, &to);
+    SDL_EndGPUCopyPass(copy);
+    m_readFences[which] = SDL_SubmitGPUCommandBufferAndAcquireFence(cmd);
+}
+
+bool GpuBase::EndRead(int which, void *out, uint32_t bytes) {
+    if (!m_readFences[which]) {
+        return false;
+    }
+    SDL_WaitForGPUFences(m_device, true, &m_readFences[which], 1);
+    SDL_ReleaseGPUFence(m_device, m_readFences[which]);
+    m_readFences[which] = nullptr;
+    std::memcpy(out, SDL_MapGPUTransferBuffer(m_device, m_reads[which], false), bytes);
+    SDL_UnmapGPUTransferBuffer(m_device, m_reads[which]);
+    return true;
 }
 
 void GpuBase::OutputSize(int &width, int &height) const {

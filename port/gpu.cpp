@@ -26,6 +26,7 @@ void Gpu::Shutdown() {
         return;
     }
     SDL_WaitForGPUIdle(m_device);
+    DropVramAside();
     for (SDL_GPUTexture *t : {m_vram, m_work, m_backup, m_backup2, m_draws, m_tiles, m_lists}) {
         if (t) {
             SDL_ReleaseGPUTexture(m_device, t);
@@ -213,6 +214,32 @@ void Gpu::ReadScreen(uint32_t scrollX, uint32_t scrollY, uint32_t *out) {
     }
 }
 
+void Gpu::StartScreenRead(int which, uint32_t scrollX, uint32_t scrollY) {
+    // (as ReadScreen reads it)
+    const int x = static_cast<int>(scrollX & (kW - 1)), y = static_cast<int>(scrollY & (kH - 1));
+    m_readW[which] = std::min(static_cast<int>(Blitter::kScreenWidth), kW - x);
+    m_readH[which] = std::min(static_cast<int>(Blitter::kScreenHeight), kH - y);
+    StartRead(which, m_vram, x, y, m_readW[which], m_readH[which], static_cast<uint32_t>(m_readW[which] * m_readH[which] * 2));
+}
+
+bool Gpu::EndScreenRead(int which, uint32_t *out) {
+    const int w = Blitter::kScreenWidth, h = Blitter::kScreenHeight, gotW = m_readW[which], gotH = m_readH[which];
+    m_readPart.resize(static_cast<size_t>(gotW) * gotH);
+    if (!EndRead(which, m_readPart.data(), static_cast<uint32_t>(m_readPart.size() * 2))) {
+        return false;
+    }
+    std::vector<uint16_t> pixels(static_cast<size_t>(w) * h, 0);
+    for (int row = 0; row < gotH; row++) {
+        std::memcpy(&pixels[static_cast<size_t>(row) * w], &m_readPart[static_cast<size_t>(row) * gotW], static_cast<size_t>(gotW) * 2);
+    }
+    for (size_t i = 0; i < pixels.size(); i++) {
+        const uint16_t p = pixels[i];
+        const uint32_t r = (p >> 10) & 0x1F, g = (p >> 5) & 0x1F, b = p & 0x1F;
+        out[i] = 0xFF000000u | ((b << 3 | b >> 2) << 16) | ((g << 3 | g >> 2) << 8) | (r << 3 | r >> 2);
+    }
+    return true;
+}
+
 // Run-ahead: an area about to be written is copied to the backup texture first (each journal's own). Only the part
 // of it not kept already is copied: the first copy of a pixel holds what was there when the journal began, a second
 // would not
@@ -283,6 +310,33 @@ void Gpu::Rollback(int which) {
         SDL_SubmitGPUCommandBuffer(cmd);
     }
     EndJournal(which);
+}
+
+void Gpu::SetVramAside(int which) {
+    if (!m_aside[which]) {
+        m_aside[which] = MakeTexture(SDL_GPU_TEXTUREFORMAT_R16_UINT, kW, kH, SDL_GPU_TEXTUREUSAGE_SAMPLER); // (as m_vram is)
+    }
+    SDL_GPUCommandBuffer *cmd = SDL_AcquireGPUCommandBuffer(m_device);
+    SDL_GPUCopyPass *copy = SDL_BeginGPUCopyPass(cmd);
+    CopyArea(copy, m_vram, m_aside[which], 0, 0, kW, kH);
+    SDL_EndGPUCopyPass(copy);
+    SDL_SubmitGPUCommandBuffer(cmd);
+}
+
+void Gpu::TradeVram(int which) {
+    std::swap(m_vram, m_aside[which]);
+}
+
+void Gpu::DropVramAside() {
+    if (!m_device) {
+        return;
+    }
+    for (SDL_GPUTexture *&t : m_aside) {
+        if (t) {
+            SDL_ReleaseGPUTexture(m_device, t);
+            t = nullptr;
+        }
+    }
 }
 
 // A run of draws none of which reads what another of them writes: binned into tiles over the area they cover, run

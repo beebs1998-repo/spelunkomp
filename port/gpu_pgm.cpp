@@ -261,4 +261,12 @@ void GpuPgm::ReadScreen(uint32_t *out) {
     Download(m_picture, 0, 0, kW, kH, out, kW * kH * 4);
 }
 
+void GpuPgm::StartScreenRead(int which) {
+    StartRead(which, m_picture, 0, 0, kW, kH, kW * kH * 4);
+}
+
+bool GpuPgm::EndScreenRead(int which, uint32_t *out) {
+    return EndRead(which, out, kW * kH * 4);
+}
+
 } // namespace spelunk

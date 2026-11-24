@@ -260,4 +260,12 @@ void Gpu68k::ReadScreen(uint32_t *out) {
     Download(m_picture, 0, 0, kW, kH, out, kW * kH * 4);
 }
 
+void Gpu68k::StartScreenRead(int which) {
+    StartRead(which, m_picture, 0, 0, kW, kH, kW * kH * 4);
+}
+
+bool Gpu68k::EndScreenRead(int which, uint32_t *out) {
+    return EndRead(which, out, kW * kH * 4);
+}
+
 } // namespace spelunk

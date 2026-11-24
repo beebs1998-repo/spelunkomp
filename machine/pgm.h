@@ -149,6 +149,16 @@ public:
     // (exact: the sound chips run on meanwhile; `which`: one of two moments kept at once: online play's rollback)
     void KeepNow(bool exact = false, int which = 0);
     void PutBack(int which = 0);
+    // The input lag readout's looks (port/main.cpp), run a frame at a time between the game's own: the board as it is
+    // now set aside (SetAside), and later the board and a moment set aside changing places (Trade), so that a frame
+    // can be run on from the moment while the game's own state waits, and they change back. The picture on show goes
+    // with it. `hold`: the sound chip stands still, as in run-ahead's frames (the moment's frames are not heard).
+    struct Aside {
+        std::vector<uint8_t> state;
+        std::vector<uint32_t> picture;
+    };
+    void SetAside(Aside &to);
+    void Trade(Aside &with, bool hold);
 
     // M68KBus
     uint8_t Read8(uint32_t address) override;
@@ -181,7 +191,7 @@ public:
 
 private:
     std::vector<uint32_t> m_picture;
-    std::vector<uint8_t> m_kept[2];
+    std::vector<uint8_t> m_kept[2], m_traded;
     uint64_t m_frameStart = 0, m_nextIrq4 = 0;
     bool m_irq4 = false, m_irq6 = false;
     // The sound side: the three latches between the CPUs, whether the Z80 is held, how far it has run
