@@ -109,7 +109,7 @@ public:
     static constexpr int kDefaultDelay = 2; // frames a player's own controls are held back (fewer rollbacks)
     // The introduction service (online/): a host gets a code from it, and a player joining by the code is told where
     // the host is, and the host where they are; the two then reach each other directly
-    static constexpr const char *kService = "https://cps2recomp-online.tmcleroy.workers.dev";
+    static constexpr const char *kService = "https://spelunkomp-online.tmcleroy.workers.dev";
 
     // What --host, --join and the --net-* options asked for
     struct Settings {

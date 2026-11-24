@@ -5,6 +5,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **Online play has its own service**, spelunkomp-online (`online/`, a copy of cps2recomp's), no longer cps2recomp's:
+  the lobby, the waiting room and the codes are Spelunkomp's alone. Play online with this version on both sides.
 - **Follow the finger** on Android, the touch controls' new way to move: put a finger down anywhere away from the
   buttons and the ship moves as it moves, the same distance on the screen, from where the ship is (not to under
   the finger, which would hide it), as some of Cave's own phone ports played. The ship's place is read from the
