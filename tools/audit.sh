@@ -51,11 +51,13 @@ check "no key-like tables (256 byte values or more in a list) outside third_part
     END { if (NR) look(all, last) }' || true)"
 check "no home folder or machine paths" "$(grep_files -e '/Users/[a-zA-Z]' -e '/home/[a-z]+/' -e 'C:\\\\Users\\\\[a-zA-Z]' -e '~/code/' -e '~/\.claude' -e '/Volumes/' -e '/private/tmp/claude' -e '/tmp/claude-' || true)"
 check "no private session links or private network addresses" "$(grep_files -e 'claude\.ai/code/session' -e '\b192\.168\.[0-9]+\.[0-9]+' -e '\b10\.[0-9]+\.[0-9]+\.[0-9]+\b' -e '\.local\b[^/_]' || true)"
-# (third_party/'s files are kept as their projects publish them: up to 1 MB; the README's pictures up to 6 MB)
+# (third_party/'s files are kept as their projects publish them: up to 1 MB; the README's pictures up to 6 MB, its
+# animated GIFs up to 10 MB: a few seconds of a busy scene at 30 pictures a second; GitHub shows images up to 10 MB)
 # (the files found over SIZE KB, of the paths read; xargs hands find the paths before its tests)
 big() { tr '\n' '\0' | xargs -0 sh -c 's=$1; shift; find "$@" -prune -type f -size +"$s"k' sh "$1" || true; }
-check "no file over 512 KB (third_party/: 1 MB; docs/screenshots/: 6 MB)" "$(grep -vE '^(docs/screenshots|third_party)/' "$LIST" | big 512; \
-    grep '^third_party/' "$LIST" | big 1024; grep '^docs/screenshots/' "$LIST" | big 6144)"
+check "no file over 512 KB (third_party/: 1 MB; docs/screenshots/: 6 MB, its GIFs 10 MB)" "$(grep -vE '^(docs/screenshots|third_party)/' "$LIST" | big 512; \
+    grep '^third_party/' "$LIST" | big 1024; grep '^docs/screenshots/' "$LIST" | grep -v '\.gif$' | big 6144; \
+    grep '^docs/screenshots/.*\.gif$' "$LIST" | big 10240)"
 # (the public repository may name only public ports: cps2recomp, satrecomp, recomp-common, Fighting Vipers, Fighters
 # Megamix, Soulcalibur II, Vampire Savior, Muscle March. Add a port here while it is private; take it out once public)
 check "no names of ports that are still private" "$(grep_files_i -e 'sf3comp' -e 'cps3recomp' -e 'naomi_?comp' -e 'naomirecomp' -e 'snesrecomp' -e 'bonkers' \
