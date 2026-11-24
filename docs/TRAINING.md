@@ -83,7 +83,7 @@ runtime/shmup.h makes the features from them:
 | DoDonPachi SaiDaiOuJou | all five (a later stage reached through stage 1's launch and the game's own way on to the next stage, 0x0C1F27F0 called at the collision pass's entry, with stage 1's tally; tried at stage 3 and the bosses of stages 1 and 2) |
 | Ibara, Ibara Kuro Black Label | all five (a stage begun through the game's own script, its pointer sent past the stages before it; out of harm holds the safe count at 59: above 60 it also kept a lost ship from coming back) |
 | Pink Sweets | start at stage (seven stages), straight to the boss, out of harm, ships that never run out, and the Rose Cracker always charged in place of bombs, which the game has none of (its gauge, the player's record +0x286, held full at 128: every shot tap releases one) |
-| Muchi Muchi Pork! | all five. The bombs are a byte at 0x0C510D3C, kept at 2; the bomb is button 3 (button 2 is the lard attack) |
+| Muchi Muchi Pork! | all five. The bombs are a byte at 0x0C510D3C, kept at 2; the bomb is button 3 (button 2 is the lard attack). Also the lard meter kept full (a word at 0x0C510D36, 104 full) |
 | Deathsmiles, Deathsmiles MegaBlack Label | all five. A stage is a place on the map, begun by the new-game routine's count of stages played (0x0C06F040 / 0x0C1EFE60, r5); "Off" is the map. The life is a word, 130 a ship (kept at two ships' worth); out of harm holds the safe count in the player's record (+0xAC / +0xD8) at 64. The castles' boss tunes are not known, so the trip to the boss times out there |
 | Akai Katana | all five (player 1's record at 0x0C7E8628: ships 32 bits, 1,600 a ship). A later stage (2-6) is begun through the game's own way on to a stage, 0x0C1F48F0, given the stage chosen where a new game calls it from 0x0C275DE2; the game plays a stage's end first. Stage 5's boss tune is not known, so that trip times out |
 | DonPachi (Japan 1.01, US 1.12) | all five (stages 2 to 5 through the carrier's launch and the game's own stage end, with stage 1's clear bonus; the bombs are not filled while the stage's tally counts them into points) |
@@ -93,7 +93,7 @@ runtime/shmup.h makes the features from them:
 | Guwange | all five. A later stage (2-7) is begun through the game's own stage end (070E78, as a boss dying calls it), after stage 1's tally; the boss is the life bar's word 0x20249C. Lives are a ceiling (0x2026DE) and the life under it (0x2026DA), 0xC00 a ship; both are raised together (`Facts::shipsAlso`) |
 | DoDonPachi Dai-Ou-Jou, Black Label | all five (stages 2 to 5 begun from the new game task's own stage) |
 | Ketsui | all five, at all five stages. Stage 4 is one the game only ever begins from stage 3's end (begun from a new game its scroll stands still and the picture stays black), so a game begun there is sent on into it as stage 3's end sends it (`Facts::sendOnStages` / `sendOn`): once the scroll task has had its first run, its speed, standing place and timer are set as stage 3's end leaves them, and the game's own timer begins the stage (0CCE86: 0C98CA, then 0CADE6), the scroll running in as from stage 3 while the ship is brought in. Tried: the stage's scenery and enemies against the same stage reached by play, and played on through its boss to stage 5; the trip to each stage's boss (all five arrive: 6,907, 8,104, 10,400, 12,373 and 23,671 frames of the board on the way); Begin at the stage at stage 4 |
-| Espgaluda | all five (the guard barrier's gauge kept full stands for the bombs; a later stage is reached through the game's own stage end, with its tally) |
+| Espgaluda | all five (the guard barrier's gauge kept full stands for the bombs; a later stage is reached through the game's own stage end, with its tally). Also the gems kept full (a word at 80EF04, 500 the most: Kakusei for as long as wanted) |
 | Mazinger Z | all five, the stage start at all eight stages and the second loop's eight (the new game's fade, 004624, entered with the stage and the loop chosen, as the program's own stage select, which this set never shows, leaves them). The game has no ships: its three bars of energy stand for them (the low four bits of a byte, kept at two: `Facts::shipsMask`, "Energy never runs out"). The bomb is button 3 (button 2 is the robot's special attack, which costs nothing). No word says a boss is on: the trip to the boss ends when the stage's script has passed the entry that starts the boss's tune, or in stage 3, which has none, the entry its boss comes in after (`Facts::bossOn`) |
 | Air Gallet | all five (stages 2 to 6: the stage put in the game's stage word as a new game clears it, 003DC2, as the attract show's demonstration begins at its stages; a later stage begins with the ship flying, without stage 1's launch from the carrier. The boss is where the stage asks for the bosses' tune: the game has no word for it, so its own table of places is read, 00B110) |
 | DoDonPachi II: Bee Storm | all five, at each of the seven stages (the game keeps its place in the mode's order of stages in a word, set as a game begins: 14BC06). Its own Practice mode has only the first four, so a later stage chosen there is its fourth; the features work in Practice, Combat and Internet Rank alike. The trip to the boss ends at the boss's warning (a hook at 16AD8C: no word of memory says a boss is on), 6 seconds in at stage 1 and up to 4 minutes of the game's time at stage 5. A ship of the Energy kind has its gauge kept full in place of bombs. Out of harm is the ship's own shield count (the shield is drawn) |
@@ -219,6 +219,17 @@ Not there: the boxes of the bee storm (14FEFC) are read as the laser's are but w
 shots' and enemies' boxes of player 2 are read (the ship, shots and laser of both players) but were only seen with
 player 1; the trip to the boss was not timed against a board.
 
+## Scoring readouts (runtime/game.h: Game::readouts)
+
+The counters a game keeps and does not show, read from its memory each frame and written down the left of the picture
+(the feature "Scoring readouts", offered only by a game that has some). A game lists them as names and a routine that
+reads each one's value now ("" hides it).
+
+| Game | Readouts |
+| --- | --- |
+| Muchi Muchi Pork! | LARD: the lard meter as a number, out of 104 (the game draws only its bar) |
+
 ## Not yet
 
-The scoring readouts each game hides, score attack and the other modes (ROADMAP.md).
+The other games' scoring readouts (rank, Mushihimesama's counter, Espgaluda II's gems, gold and kakusei gauge,
+Futari's counter and multiplier: none found yet), score attack and the other modes (ROADMAP.md).

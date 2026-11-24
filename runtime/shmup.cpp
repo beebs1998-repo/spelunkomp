@@ -137,6 +137,9 @@ std::vector<recomp::FeatureInfo> Features(const Facts &facts) {
     if (facts.ships) {
         features.push_back({"endless_ships", kTrainingPage, facts.shipsTitle, facts.shipsWords, 0, {}});
     }
+    for (const Facts::FullGauge &g : facts.fullGauges) {
+        features.push_back({g.name, kTrainingPage, g.title, g.words, 0, {}});
+    }
     if (facts.hitBoxes) {
         // (the page of their own, under Training: runtime/hit_boxes.h)
         const std::vector<recomp::FeatureInfo> boxes = hitboxes::Features(facts.hitKinds);
@@ -258,6 +261,10 @@ void BeforeFrame(Board &board, const Facts &facts, const int *values) {
     g_toBossWanted = toBoss;
     const bool endlessBombs = (facts.bombs || !facts.gauges.empty()) && values[at++];
     const bool endlessShips = facts.ships && values[at++];
+    std::vector<bool> gaugesFull;
+    for (size_t i = 0; i < facts.fullGauges.size(); i++) {
+        gaugesFull.push_back(values[at++] != 0);
+    }
     g_stage = startStage;
     if (board.frame < 1200) {
         return; // (the board's start-up owns RAM)
@@ -305,6 +312,11 @@ void BeforeFrame(Board &board, const Facts &facts, const int *values) {
         }
         for (const Facts::Gauge &g : facts.gauges) {
             Write(board, g.address, g.full, g.bytes);
+        }
+    }
+    for (size_t i = 0; i < facts.fullGauges.size(); i++) {
+        if (gaugesFull[i]) {
+            Write(board, facts.fullGauges[i].address, facts.fullGauges[i].full, facts.fullGauges[i].bytes);
         }
     }
     if (endlessShips) {

@@ -177,6 +177,13 @@ void AddProgramFeatures(std::vector<recomp::FeatureInfo> features) {
 const std::vector<recomp::FeatureInfo> &AllFeatures() {
     static const std::vector<recomp::FeatureInfo> all = [] {
         std::vector<recomp::FeatureInfo> list = ThisGame().features;
+        if (!ThisGame().readouts.empty()) {
+            list.push_back({"readouts", kTrainingPage, "Scoring readouts",
+                            std::string("The counters the game keeps and does not show, read from its memory as it plays. Shown down "
+                                        "the left of the picture: ") +
+                                (ThisGame().readoutsWhat ? ThisGame().readoutsWhat : "") + ".",
+                            0, {}});
+        }
         list.insert(list.end(), ToolkitFeatures().begin(), ToolkitFeatures().end());
         list.insert(list.end(), ProgramFeatures().begin(), ProgramFeatures().end());
         return list;
