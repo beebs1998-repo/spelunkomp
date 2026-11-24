@@ -2327,6 +2327,7 @@ int main(int argc, char **argv) {
         }
         } // (not rewinding)
         frameCount++;
+        port::TestCrashAt(frameCount); // (only with SPELUNKOMP_TEST_CRASH_AT_FRAME set: port/crash_log.h)
         if (frameCount % 300 == 0) {
             saveKept();
         }

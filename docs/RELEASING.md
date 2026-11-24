@@ -87,6 +87,11 @@ calls that led to it into the game's `logs/game.log` as program+offset (`ddpdoj.
 `tools/release/crash_where.sh build/release-windows/symbols/ddpdoj.exe 0x40ba8 ...` names their functions. Only the
 same build's programs match.
 
+To check the report on a new build, start a game with `SPELUNKOMP_TEST_CRASH_AT_FRAME=600` in its environment (on
+Windows, `set SPELUNKOMP_TEST_CRASH_AT_FRAME=600` in a console, then start the game's program from it): it writes
+through a null pointer after frame 600, and `logs/game.log` (or the console) should end with the exception, the
+address it wrote (0) and the calls, which `crash_where.sh` names. Nothing happens unless the variable is set.
+
 ## If something is wrong after publishing
 
 Don't replace the files of a published release. Fix it, raise the version (`-beta.N+1`, or the patch number) and
