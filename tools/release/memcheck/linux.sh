@@ -31,10 +31,17 @@ while IFS= read -r line; do
     esac
 done < <(tr '\0' '\n' < "/proc/$P/environ")
 
-# The program is started through sh, which writes its own PID and then becomes the program (exec): the PID is the
-# program's from its first instruction, not looked up from the unit afterwards
+# The program is started by pidwrap.sh, which writes its own PID and then becomes the program (exec): the PID is the
+# program's from its first instruction, not looked up from the unit afterwards. systemd expands $ and % in the command
+# (and specifiers in the output's path): nothing given to systemd-run may hold either, so a run whose paths or
+# arguments do refuse to start, saying so, rather than start something else
+WRAP="$(cd "$(dirname "$0")" && pwd)/pidwrap.sh"
+plain() { # true if none of the words holds $ or %
+    local w
+    for w; do case "$w" in *'$'* | *'%'*) echo "error: '$w' holds \$ or %, which systemd would expand: not run" >&2; return 1 ;; esac; done
+}
 launch() {
-    local name=$1 k
+    local name=$1 k u main
     shift
     # (a unit of its own each time: one left by a run before, its program held in the driver, is never waited on)
     UNIT="spelunkomp-memcheck-${name//[^a-zA-Z0-9]/-}-$(date +%s)"
@@ -43,16 +50,29 @@ launch() {
     VRAM_BASE=$(vram_card) # (the card's count before the run: the desktop's, taken off)
     VRAM_BASE=${VRAM_BASE:-0}
     PID=0
+    plain "$DIR" "$WORK/$name/out.txt" "${SETENV[@]}" "$WRAP" "$PIDFILE" "$@" 2>&1 || return 0
     systemd-run --user --quiet --unit="$UNIT" -p RemainAfterExit=yes --working-directory="$DIR" "${SETENV[@]}" \
         -p StandardOutput="file:$WORK/$name/out.txt" -p StandardError="file:$WORK/$name/out.txt" \
-        -- /bin/sh -c 'echo $$ > "$0.new" && mv "$0.new" "$0" && exec "$@"' "$PIDFILE" "$@" ||
-        { echo "error: systemd-run failed for $name"; return; }
+        -- /bin/sh "$WRAP" "$PIDFILE" "$@" ||
+        { echo "error: systemd-run failed for $name"; return 0; }
     for ((k = 0; k < 50; k++)); do
         [ -s "$PIDFILE" ] && PID=$(cat "$PIDFILE") && break
         sleep 0.2
     done
-    [ "${PID:-0}" != 0 ] || echo "error: $name's PID never came (systemctl --user status $UNIT)"
+    case "$PID" in
+        "" | 0) echo "error: $name's PID never came (systemctl --user status $UNIT)"; PID=0; return 0 ;;
+        *[!0-9]*) echo "error: pid file says '$PID' ($PIDFILE): not run on"; PID=0; force_unit_stop; return 0 ;;
+    esac
+    # (systemd's MainPID, once it runs it, must be the same)
+    for ((k = 0; k < 25; k++)); do
+        u=$(unit_show)
+        case "$u" in *SubState=running*) break ;; esac
+        sleep 0.2
+    done
+    main=$(echo "$u" | sed -n 's/.*MainPID=\([0-9]*\).*/\1/p')
+    [ "$main" = "$PID" ] || echo "error: $name: pid file says $PID, the unit's MainPID $main ($u): going on with the pid file's"
 }
+force_unit_stop() { timeout 10 systemctl --user --no-block stop "$UNIT" 2>/dev/null; }
 # Liveness, from two that must agree before the program is taken to have ended: the kernel's (its /proc/PID/stat,
 # read by bash itself: no awk, no timeout; the state is the field after the name, which may hold spaces and
 # parentheses, so after the last ") ") and systemd's (the unit's MainPID and SubState).

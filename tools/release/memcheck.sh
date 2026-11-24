@@ -21,9 +21,10 @@
 # GBs in seconds, is far past both. The rewind run's ceiling is the same game's plain run on that machine, its peak
 # and 450 MB (MEMCHECK_REWIND_MARGIN_MB; 1 GB if there was no plain run), as the table says; its memory is not held
 # to the slope rule: rewind fills its moments (up to 384 MB) by design. A run is stopped (asked to quit, given 10 s,
-# killed only then) if: its memory passes 2 GB or its VRAM 3 GB; no sample comes for 10 s; its pictures do not come (the one 5 s after the title by 40 s, the
-# one halfway by three quarters of the run and 30 s); or it is still going at twice its time and a minute. A program
-# that cannot be stopped even so (held in its GPU driver) ends that machine's runs: it may need restarting.
+# killed only then) if: its memory passes 2 GB or its VRAM 3 GB; no sample comes for 10 s; its pictures do not come
+# (the one 5 s after the title by 40 s, the one halfway by three quarters of the run and 30 s); or it is still going
+# at twice its time and a minute. A program that cannot be stopped even so (held in its GPU driver) ends that
+# machine's runs: it may need restarting.
 #
 #   tools/release/memcheck.sh [--dry-run | --judge] [win] [linux] [mac]   (none named: every one set below; --dry-run
 #                                prints the commands, runs none; --judge judges the logs of the last run again)
@@ -136,8 +137,8 @@ run_linux() (
     remote_home "$h" /home/USER
     w="$RHOME/spelunkomp-memcheck"
     step "making $w on $h" ssh "${SSH_OPTS[@]}" "$h" "mkdir -p $(q "$w")"
-    step "copying the runner to $h" scp -q "${SSH_OPTS[@]}" "$HERE/play.sh" "$HERE/linux.sh" "$h:$w/"
-    step "checking the copy on $h" ssh "${SSH_OPTS[@]}" "$h" "test -f $(q "$w/linux.sh") && test -f $(q "$w/play.sh")"
+    step "copying the runner to $h" scp -q "${SSH_OPTS[@]}" "$HERE/play.sh" "$HERE/linux.sh" "$HERE/pidwrap.sh" "$h:$w/"
+    step "checking the copy on $h" ssh "${SSH_OPTS[@]}" "$h" "test -f $(q "$w/linux.sh") && test -f $(q "$w/play.sh") && test -f $(q "$w/pidwrap.sh")"
     step "the Linux run on $h" ssh "${SSH_OPTS[@]}" "$h" "cd && MEMCHECK_GAMES=$(q "$MEMCHECK_GAMES") MEMCHECK_SECONDS=$MEMCHECK_SECONDS" \
         "MEMCHECK_REWIND=$MEMCHECK_REWIND MEMCHECK_ENV_FROM=$(q "${MEMCHECK_ENV_FROM:-steam}")" \
         "bash $(q "$w/linux.sh") $(q "$MEMCHECK_LINUX_DIR") $(q "$MEMCHECK_LINUX_ROMS") $(q "$w/runs")"
