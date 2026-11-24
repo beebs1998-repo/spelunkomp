@@ -121,9 +121,9 @@ public:
     size_t Moments() const {
         return m_moments.size();
     }
-    size_t Bytes() const {
-        return m_bytes;
-    }
+    // What the timeline holds, all told: its moments as allocated, and the RAM and VRAM it keeps beside them
+    // (limitBytes is of this)
+    size_t Bytes() const;
 
 private:
     struct Moment {
@@ -132,8 +132,10 @@ private:
         std::vector<uint8_t> pagesBefore; // (as they were then)
         std::vector<uint32_t> blocks;     // the blocks of VRAM written since the moment before
         std::vector<uint16_t> blocksBefore;
+        // (as allocated: each vector's capacity, made its size when the moment is kept, and the moment itself)
         size_t Bytes() const {
-            return small.size() + pagesBefore.size() + blocksBefore.size() * 2;
+            return sizeof(Moment) + small.capacity() + pages.capacity() * 4 + pagesBefore.capacity() + blocks.capacity() * 4 +
+                   blocksBefore.capacity() * 2;
         }
     };
     bool m_begun = false;

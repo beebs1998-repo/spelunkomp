@@ -5,11 +5,21 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
-- **CRT Newpixie** on the Shader setting: RetroArch's newpixie-crt, a light CRT look with chromatic aberration,
-  ghosting, a little curvature and scanlines.
+## 0.1.0-beta.2
+
+A fix for the CV1000 games' memory on Windows and some Linux desktops, the GPU named in the log, crash logs kept, and a
+new CRT shader.
+
+- **The CV1000 games' memory growth fixed.** With the GPU renderer, on Windows (and on some Linux desktops) a CV1000
+  game's memory could grow by gigabytes in seconds, the game turning choppy, until it used all of the RAM and was
+  stopped. It now stays flat. No input lag is added.
+- **The GPU and driver named at startup**, in the game's log (logs/game.log), for reports.
+- **Rewind's memory cap counts what it really holds**: up to 384 MB means 384 MB.
 - **A crash leaves its log.** A game's output reached `logs/game.log` only in blocks, so a crash lost it and the
   launcher's report pointed at an empty log. It is now written as it goes, and on Windows a crash adds where it
   happened and the calls that led there (the build's unstripped programs and `tools/release/crash_where.sh` name them).
+- **CRT Newpixie** on the Shader setting: RetroArch's newpixie-crt, a light CRT look with chromatic aberration,
+  ghosting, a little curvature and scanlines.
 
 ## 0.1.0-beta.1
 

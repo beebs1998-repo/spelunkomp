@@ -54,10 +54,13 @@ protected:
     // The renderer's shader that draws its screen into the window (kept here, released at Close): m_screenPipeline,
     // made again if a window of another format is given
     bool SetScreenShader(SDL_GPUShader *screen);
-    // The upload transfer buffer, at least `size` bytes, mapped (cycled: what the GPU still reads is not touched)
+    // `size` bytes of the upload transfer buffer, mapped: the frame's next free part of it (m_uploadOffset, where the
+    // part starts). A frame's uploads go one after another into one buffer, which is cycled (what the GPU still reads
+    // of the frames before is not touched) only when a frame begins or the buffer is full: never once a pass, which
+    // had SDL make a buffer for each pass in flight
     void *MapUpload(uint32_t size);
-    // Rows of `width` texels from the upload buffer (at `offset`) into a texture, never cycling the texture (what is
-    // not written keeps its texels)
+    // Rows of `width` texels from the upload buffer (at `offset` into the part MapUpload gave) into a texture, never
+    // cycling the texture (what is not written keeps its texels)
     void UploadRows(SDL_GPUCopyPass *copy, SDL_GPUTexture *to, int x, int y, int width, int rows, uint32_t offset = 0);
     // Part of a texture brought back, waiting for the GPU
     void Download(SDL_GPUTexture *texture, int x, int y, int w, int h, void *out, uint32_t bytes);
@@ -78,8 +81,19 @@ protected:
     SDL_GPUGraphicsPipeline *m_screenPipeline = nullptr;
     SDL_GPUTransferBuffer *m_upload = nullptr, *m_download = nullptr;
     uint32_t m_uploadSize = 0, m_downloadSize = 0;
+    uint32_t m_uploadOffset = 0; // (where the part the last MapUpload gave starts)
 
 private:
+    // Frames in flight, at most this many: each present's command buffer leaves a fence, and the present waits for the
+    // one from this many presents before (at once when the GPU keeps up: no lag; docs/LAG.md). Without it nothing
+    // held the CPU back but the swapchain, which does not when there is no picture to give (a hidden or minimised
+    // window, the shader's path) or the system shows frames without waiting: then a GPU slower than the game had
+    // frames queued without end, and SDL a transfer buffer for each
+    static constexpr int kFramesInFlight = 2;
+    SDL_GPUFence *m_frameFences[kFramesInFlight] = {};
+    int m_frameAt = 0;
+    uint32_t m_uploadAt = 0; // (the upload buffer's next free byte this frame; past its end: cycled at the next map)
+    void EndFrame(SDL_GPUCommandBuffer *cmd);
     SDL_GPUTexture *m_picture = nullptr, *m_overlay = nullptr, *m_layer = nullptr;
     int m_pictureW = 0, m_pictureH = 0, m_overlayW = 0, m_overlayH = 0, m_layerW = 0, m_layerH = 0;
     bool m_overlayOn = false, m_layerOn = false;

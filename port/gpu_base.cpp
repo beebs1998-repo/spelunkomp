@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
+#include <string>
 
 namespace spelunk {
 
@@ -90,6 +91,31 @@ bool GpuBase::Open(SDL_Window *window) {
     if (!m_device) {
         fprintf(stderr, "gpu: %s\n", SDL_GetError());
         return false;
+    }
+    // The GPU and driver SDL chose, once, into the output (the launcher's logs/game.log): what a player can tell us
+    static bool told = false;
+    if (!told) {
+        told = true;
+        std::string line = std::string("gpu: ") + SDL_GetGPUDeviceDriver(m_device);
+#if SDL_VERSION_ATLEAST(3, 4, 0)
+        const SDL_PropertiesID about = SDL_GetGPUDeviceProperties(m_device);
+        for (const char *key : {SDL_PROP_GPU_DEVICE_NAME_STRING, SDL_PROP_GPU_DEVICE_DRIVER_NAME_STRING,
+                                SDL_PROP_GPU_DEVICE_DRIVER_INFO_STRING, SDL_PROP_GPU_DEVICE_DRIVER_VERSION_STRING}) {
+            std::string value = SDL_GetStringProperty(about, key, "");
+            if (strcmp(key, SDL_PROP_GPU_DEVICE_DRIVER_VERSION_STRING) == 0 && SDL_HasProperty(about, SDL_PROP_GPU_DEVICE_DRIVER_INFO_STRING)) {
+                continue; // (the version, where the driver's own description already says it)
+            }
+            std::replace(value.begin(), value.end(), '\n', ' ');
+            while (!value.empty() && value.back() == ' ') {
+                value.pop_back();
+            }
+            if (!value.empty()) {
+                line += ", " + value;
+            }
+        }
+#endif
+        printf("%s\n", line.c_str());
+        fflush(stdout);
     }
     // (with no window, the format windows' pictures most often have: a window given later that has another makes the
     // pipelines again, SetWindow)
@@ -187,6 +213,14 @@ void GpuBase::Close() {
         return;
     }
     SDL_WaitForGPUIdle(m_device);
+    for (SDL_GPUFence *&fence : m_frameFences) {
+        if (fence) {
+            SDL_ReleaseGPUFence(m_device, fence);
+            fence = nullptr;
+        }
+    }
+    m_frameAt = 0;
+    m_uploadAt = m_uploadOffset = 0;
     for (SDL_GPUTexture *t : {m_picture, m_overlay, m_layer}) {
         if (t) {
             SDL_ReleaseGPUTexture(m_device, t);
@@ -233,23 +267,46 @@ void GpuBase::Close() {
 }
 
 void *GpuBase::MapUpload(uint32_t size) {
+    // (each part starts 512 bytes in: Direct3D 12 copies to a texture only from there, SDL otherwise copying it again)
+    constexpr uint32_t kAlign = 512;
+    bool fresh = m_uploadAt > m_uploadSize || size > m_uploadSize - m_uploadAt;
     if (size > m_uploadSize) {
         if (m_upload) {
-            SDL_ReleaseGPUTransferBuffer(m_device, m_upload);
+            SDL_ReleaseGPUTransferBuffer(m_device, m_upload); // (SDL keeps it until the GPU is done with it)
         }
-        m_uploadSize = std::max(size, 1u << 20);
+        m_uploadSize = std::max(size, 4u << 20);
         SDL_GPUTransferBufferCreateInfo info{};
         info.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
         info.size = m_uploadSize;
         m_upload = SDL_CreateGPUTransferBuffer(m_device, &info);
+        fresh = true;
     }
-    return SDL_MapGPUTransferBuffer(m_device, m_upload, true);
+    if (fresh) {
+        m_uploadAt = 0;
+    }
+    // (cycled only for a new buffer's worth; else the part after what this frame's passes before read)
+    uint8_t *base = static_cast<uint8_t *>(SDL_MapGPUTransferBuffer(m_device, m_upload, fresh));
+    m_uploadOffset = m_uploadAt;
+    m_uploadAt += (size + kAlign - 1) / kAlign * kAlign;
+    return base ? base + m_uploadOffset : nullptr;
+}
+
+void GpuBase::EndFrame(SDL_GPUCommandBuffer *cmd) {
+    SDL_GPUFence *fence = SDL_SubmitGPUCommandBufferAndAcquireFence(cmd);
+    SDL_GPUFence *&before = m_frameFences[m_frameAt];
+    if (before) {
+        SDL_WaitForGPUFences(m_device, true, &before, 1);
+        SDL_ReleaseGPUFence(m_device, before);
+    }
+    before = fence;
+    m_frameAt = (m_frameAt + 1) % kFramesInFlight;
+    m_uploadAt = UINT32_MAX; // (the next frame's uploads into a buffer the GPU is not reading)
 }
 
 void GpuBase::UploadRows(SDL_GPUCopyPass *copy, SDL_GPUTexture *to, int x, int y, int width, int rows, uint32_t offset) {
     SDL_GPUTextureTransferInfo source{};
     source.transfer_buffer = m_upload;
-    source.offset = offset;
+    source.offset = m_uploadOffset + offset;
     source.pixels_per_row = static_cast<Uint32>(width);
     source.rows_per_layer = static_cast<Uint32>(rows);
     SDL_GPUTextureRegion region{};
@@ -346,19 +403,17 @@ void GpuBase::Draw(SDL_GPUCommandBuffer *cmd, SDL_GPUTexture *target, bool clear
 }
 
 void GpuBase::Present(SDL_GPUGraphicsPipeline *pipeline, SDL_GPUTexture *texture, const int32_t *params, const SDL_FRect &to, bool overlay) {
-    if (!m_window) {
-        return; // (no window of its own: the picture goes through a shader, port/shading.h)
-    }
+    // (every present ends a frame, whether or not there is a window to show it in: EndFrame)
     SDL_GPUCommandBuffer *cmd = SDL_AcquireGPUCommandBuffer(m_device);
     SDL_GPUTexture *swapchain = nullptr;
     Uint32 sw = 0, sh = 0;
-    if (!SDL_WaitAndAcquireGPUSwapchainTexture(cmd, m_window, &swapchain, &sw, &sh) || !swapchain) {
-        SDL_SubmitGPUCommandBuffer(cmd); // (no window to show it in, hidden or minimised)
-        return;
+    // (no window of its own: the picture goes through a shader, port/shading.h; or none to show it in, hidden or
+    // minimised: SDL then gives no picture, and does not wait)
+    if (m_window && SDL_WaitAndAcquireGPUSwapchainTexture(cmd, m_window, &swapchain, &sw, &sh) && swapchain) {
+        const SDL_FRect whole{0, 0, static_cast<float>(sw), static_cast<float>(sh)};
+        Draw(cmd, swapchain, true, pipeline, texture, params, &to, overlay, &whole);
     }
-    const SDL_FRect whole{0, 0, static_cast<float>(sw), static_cast<float>(sh)};
-    Draw(cmd, swapchain, true, pipeline, texture, params, &to, overlay, &whole);
-    SDL_SubmitGPUCommandBuffer(cmd);
+    EndFrame(cmd);
 }
 
 void GpuBase::PresentToPixels(SDL_GPUGraphicsPipeline *pipeline, SDL_GPUTexture *texture, const int32_t *params, int width, int height,
