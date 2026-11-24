@@ -13,11 +13,15 @@
 #
 # A run fails if its program's memory goes over 1 GB (MEMCHECK_LIMIT_MB) or its VRAM over 1.5 GB
 # (MEMCHECK_VRAM_LIMIT_MB), if either keeps climbing after its first 30 s, or if the program does not end by itself,
-# with status 0, after its frames. Climbing: the most it had in its last 30 s is more than the most it had from 30 to
-# 60 s by over 64 MB or a tenth, whichever is more (a game's memory goes up and down a little with its scenes; a leak
-# keeps going). The rewind run's memory is held to the 1 GB alone: rewind fills a minute of moments, so it climbs, by
-# design, for its first minute. A run is stopped (asked to quit, given 10 s, killed only then) if: its memory passes
-# 2 GB or its VRAM 3 GB; no sample comes for 10 s; its pictures do not come (the one 5 s after the title by 40 s, the
+# with status 0, after its frames. Climbing: the least-squares slope of its last 60 s of samples (none of its first
+# 30 s) is over 150 MB a minute (MEMCHECK_SLOPE_MB_MIN). A fitted slope of S a minute needs a rise of at least 2/3 S
+# within that minute (a step halfway looks steepest), so a steady leak of 150 MB a minute or more fails, and memory
+# that grows in steps to plateaus, under 100 MB in any minute, passes: mmpork's upload buffer grows to its busiest
+# frame yet and stays (beta.2 on Windows: 675, 695, 756, 778 MB; plateaued at 834 MB over 5 minutes). beta.1's leak,
+# GBs in seconds, is far past both. The rewind run's ceiling is the same game's plain run on that machine, its peak
+# and 450 MB (MEMCHECK_REWIND_MARGIN_MB; 1 GB if there was no plain run), as the table says; its memory is not held
+# to the slope rule: rewind fills its moments (up to 384 MB) by design. A run is stopped (asked to quit, given 10 s,
+# killed only then) if: its memory passes 2 GB or its VRAM 3 GB; no sample comes for 10 s; its pictures do not come (the one 5 s after the title by 40 s, the
 # one halfway by three quarters of the run and 30 s); or it is still going at twice its time and a minute. A program
 # that cannot be stopped even so (held in its GPU driver) ends that machine's runs: it may need restarting.
 #
@@ -31,7 +35,8 @@
 #            MEMCHECK_ENV_FROM=a process of it, steam by default)
 #   macOS:   MEMCHECK_MAC_APP=the unpacked Spelunkomp.app  MEMCHECK_MAC_ROMS=the ROM folder
 #   MEMCHECK_OUT=build/memcheck (the logs: <system>.log, and the Mac's runs)  MEMCHECK_SSH_OPTS (more for ssh/scp)
-#   MEMCHECK_GAMES, MEMCHECK_SECONDS=120, MEMCHECK_REWIND=ddpsdoj (none: no rewind run), MEMCHECK_LIMIT_MB=1024
+#   MEMCHECK_GAMES, MEMCHECK_SECONDS=120, MEMCHECK_REWIND=ddpsdoj (none: no rewind run), MEMCHECK_LIMIT_MB=1024,
+#   MEMCHECK_VRAM_LIMIT_MB=1536, MEMCHECK_SLOPE_MB_MIN=150, MEMCHECK_REWIND_MARGIN_MB=450
 # Exits non-zero if any run fails, or a system named cannot be run.
 set -u
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -39,6 +44,8 @@ HERE="$ROOT/tools/release/memcheck"
 OUT="${MEMCHECK_OUT:-$ROOT/build/memcheck}"
 LIMIT="${MEMCHECK_LIMIT_MB:-1024}"
 VLIMIT="${MEMCHECK_VRAM_LIMIT_MB:-1536}"
+SLOPE="${MEMCHECK_SLOPE_MB_MIN:-150}"
+RMARGIN="${MEMCHECK_REWIND_MARGIN_MB:-450}"
 GAMES="${MEMCHECK_GAMES:-mmpork ddpsdoj ddonpach ket}"
 # (the runners are given each game's title frame, game.cfg's, as ID:TITLE: memcheck/play.sh)
 MEMCHECK_GAMES=$(for id in $GAMES; do
@@ -162,29 +169,43 @@ fi
 # The verdicts: system, run, peak, end (memory; and VRAM, where it was measured), pass or fail and why
 printf '\n%-6s %-16s %8s %8s %8s %8s  %s\n' system game peak end "vram pk" "vram end" result
 for s in "${SYSTEMS[@]}"; do
-    awk -v sys="$s" -v limit="$LIMIT" -v vlimit="$VLIMIT" -v secs="$MEMCHECK_SECONDS" -v want="$GAMES" -v rewind="$MEMCHECK_REWIND" '
+    awk -v sys="$s" -v limit="$LIMIT" -v vlimit="$VLIMIT" -v slope="$SLOPE" -v rmargin="$RMARGIN" -v secs="$MEMCHECK_SECONDS" -v want="$GAMES" -v rewind="$MEMCHECK_REWIND" '
     function add(w, x) { return w ? w "; " x : x }
-    # (climbing: the most of the last 30 s over the most of 30 to 60 s by more than 64 MB or a tenth; column 1 the
-    # memory, 2 the VRAM)
-    function climbing(n, col, what,   a, b, i, margin) {
-        if (!((n, col) in w3060)) return ""
-        a = w3060[n, col]; b = 0
-        for (i = 1; i <= cnt[n]; i++) if (T[n, i] >= last[n] - 30 && ((n, i, col) in M) && M[n, i, col] > b) b = M[n, i, col]
-        margin = a / 10 > 64 ? a / 10 : 64
-        return b > a + margin ? what "climbing: " a " MB at 30-60 s, " b " MB in the last 30 s" : ""
+    # (climbing: the least-squares slope of the last 60 s of samples (none before 30 s) over SLOPE MB a minute; column
+    # 1 the memory, 2 the VRAM. A slope of S a minute, fitted, needs a rise of at least 2/3 S within that minute (a step
+    # halfway is the steepest a rise can look), so at 150 a steady leak of 150 MB a minute fails, and growth in steps
+    # to plateaus, under 100 MB in any minute (a buffer grown to the busiest frame yet), does not)
+    function climbing(n, col, what,   i, from, k, sx, sy, sxx, sxy, x, y, d, m) {
+        from = last[n] - 60; if (from < 30) from = 30
+        k = sx = sy = sxx = sxy = 0
+        for (i = 1; i <= cnt[n]; i++) {
+            if (T[n, i] < from || !((n, i, col) in M)) continue
+            x = T[n, i] / 60; y = M[n, i, col]
+            k++; sx += x; sy += y; sxx += x * x; sxy += x * y
+        }
+        if (k < 10 || (d = k * sxx - sx * sx) <= 0) return ""
+        m = (k * sxy - sx * sy) / d
+        return m > slope ? sprintf("%sclimbing: %d MB a minute over its last %d s", what, m, last[n] - from) : ""
     }
-    function verdict(n,   why, c, vp, ve) {
-        why = ""
+    function verdict(n,   why, c, vp, ve, lim, base, note) {
+        why = ""; lim = limit; note = ""
+        # (the rewind run: the same game run plain on this machine, and the room the moments of rewind take; 1 GB if none)
+        if (n ~ /\+rewind$/) {
+            base = n; sub(/\+rewind$/, "", base)
+            if (cnt[base] > 0) { lim = peak[base, 1] + rmargin; note = "limit " lim " MB: " base " " peak[base, 1] " + " rmargin }
+            else note = "limit " lim " MB: no plain " base
+        }
         if (!(n in endst)) why = "no end (runner stopped)"
         else if (endst[n] != "exit:0") why = endst[n]
-        if (peak[n, 1] > limit) why = add(why, "over " limit " MB")
+        if (peak[n, 1] > lim) why = add(why, "over " lim " MB")
         if ((n, 2) in peak && peak[n, 2] > vlimit) why = add(why, "VRAM over " vlimit " MB")
         if (why == "" && last[n] < secs - 10) why = "ended at " last[n] " s"
-        if (n !~ /\+rewind$/ && (c = climbing(n, 1, ""))) why = add(why, c) # (rewind: its minute of moments fills)
+        if (n !~ /\+rewind$/ && (c = climbing(n, 1, ""))) why = add(why, c) # (rewind: its moments fill, by design)
         if ((c = climbing(n, 2, "VRAM "))) why = add(why, c)
         if (cnt[n] == 0 && why == "") why = "no samples"
         vp = (n, 2) in peak ? sprintf("%5d MB", peak[n, 2]) : "-"; ve = (n, 2) in endv ? sprintf("%5d MB", endv[n, 2]) : "-"
-        printf "%-6s %-16s %5d MB %5d MB %8s %8s  %s\n", sys, n, peak[n, 1], endv[n, 1], vp, ve, why ? "FAIL (" why ")" : "pass"
+        printf "%-6s %-16s %5d MB %5d MB %8s %8s  %s\n", sys, n, peak[n, 1], endv[n, 1], vp, ve, \
+            (why ? "FAIL (" why ")" : "pass") (note ? " [" note "]" : "")
         return why == ""
     }
     function bad_line() { if (++perr <= 3) pex[perr] = FNR ": " $0 }
@@ -192,7 +213,6 @@ for s in "${SYSTEMS[@]}"; do
     function value(n, c, col, v) {
         M[n, c, col] = v; endv[n, col] = v
         if (!((n, col) in peak) || v > peak[n, col]) peak[n, col] = v
-        if (T[n, c] >= 30 && T[n, c] < 60 && (!((n, col) in w3060) || v > w3060[n, col])) w3060[n, col] = v
     }
     # (a run on Windows comes back with CRLF lines: the CR is dropped, from the line and its fields)
     { sub(/\r+$/, "") }
