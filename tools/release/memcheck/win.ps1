@@ -31,10 +31,15 @@ if (-not $Inner) {
     if (-not (Test-Path $Roms)) { Write-Error "no ROM folder $Roms" }
     # (no \ at the end: before a closing quote it would escape it)
     $Dir = (Resolve-Path $Dir).Path.TrimEnd('\'); $Roms = (Resolve-Path $Roms).Path.TrimEnd('\'); $Work = $Work.TrimEnd('\')
-    try { $users = (& query user 2>$null) -join "`n" } catch { $users = '' }
-    if ($users -notmatch "(?im)^\W?$([regex]::Escape($env:USERNAME))\s.*\sActive\s") {
-        Write-Output "warning: $env:USERNAME has no active desktop session (query user): the task may not start"
+    # (only a warning: the task's run is what tells. query and qwinsta are not on every edition of Windows; explorer
+    # runs while someone is at the desktop, and -IncludeUserName says who, if this session may ask: elevated)
+    $desktop = $null
+    try { $desktop = @(Get-Process explorer -IncludeUserName -ErrorAction Stop | Where-Object { $_.UserName -match "\\$([regex]::Escape($env:USERNAME))$" }).Count -gt 0 } catch {}
+    if ($null -eq $desktop -and (Get-Command qwinsta -ErrorAction SilentlyContinue)) {
+        try { $desktop = ((& qwinsta 2>$null) -join "`n") -match "(?im)^\W?\S*\s+$([regex]::Escape($env:USERNAME))\s+\d+\s+Active" } catch {}
     }
+    if ($null -eq $desktop) { $desktop = @(Get-Process explorer -ErrorAction SilentlyContinue).Count -gt 0 }
+    if (-not $desktop) { Write-Output "warning: no desktop session of $env:USERNAME seen: the task may not start" }
     Remove-Item -Recurse -Force $Work -ErrorAction SilentlyContinue
     New-Item -ItemType Directory -Force $Work | Out-Null
     Copy-Item $PSCommandPath (Join-Path $Work 'win.ps1')
@@ -73,7 +78,8 @@ if (-not $Inner) {
 # The task's run, on the desktop
 $log = Join-Path $Work 'log.txt'
 function Say([string]$s) { # (the ssh side may be reading it: tried again)
-    for ($k = 0; $k -lt 20; $k++) { try { Add-Content -Encoding ASCII $log $s; return } catch { Start-Sleep -Milliseconds 100 } }
+    # (LF lines, as play.sh's; the ssh side prints them with Windows' CRLF all the same: the driver drops the CR)
+    for ($k = 0; $k -lt 20; $k++) { try { [IO.File]::AppendAllText($log, "$s`n"); return } catch { Start-Sleep -Milliseconds 100 } }
 }
 function PlayArgs([int]$s, [int]$t) { # (play.sh's play_args)
     $frames = $t + $s * 60

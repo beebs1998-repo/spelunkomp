@@ -90,22 +90,43 @@ run() {
 q() { printf '%q' "$1"; }
 wq() { local w=$1; while [ "${w%\\}" != "$w" ]; do w=${w%\\}; done; printf '"%s"' "$w"; }
 
-# Each system's run; its lines (play.sh's) in $OUT/<system>.log
-run_win() {
+# Each system's run; its lines (play.sh's) in $OUT/<system>.log. Linux's remote paths are absolute, under the remote
+# home (a relative path given to scp was not the home on SteamOS: the copy went elsewhere)
+step() { # what failed, then the command: stops this system's run, saying so
+    local what=$1
+    shift
+    run "$@" || { echo "error: $what failed (status $?): $(printf '%s ' "$@")" >&2; exit 1; }
+}
+remote_home() { # $1 the host, $2 what --dry-run shows for it; sets RHOME
+    if [ "$DRY" = 1 ]; then
+        run ssh "${SSH_OPTS[@]}" "$1" 'printf %s "$HOME"'
+        RHOME="$2"
+        return
+    fi
+    RHOME=$(ssh "${SSH_OPTS[@]}" "$1" 'printf %s "$HOME"') || { echo "error: ssh to $1 failed (status $?)" >&2; exit 1; }
+    RHOME=${RHOME%$'\r'}
+    [ -n "$RHOME" ] || { echo "error: ssh to $1 gave no home folder" >&2; exit 1; }
+}
+run_win() (
+    # (Windows' OpenSSH puts a relative path in the user's home, scp's and the shell's alike, cmd's or PowerShell's;
+    # its shell may be cmd, which has no printf for remote_home)
     local h=$MEMCHECK_WIN
-    run scp -q "${SSH_OPTS[@]}" "$HERE/win.ps1" "$h:spelunkomp-memcheck.ps1" &&
-        run ssh "${SSH_OPTS[@]}" "$h" "powershell -NoProfile -ExecutionPolicy Bypass -File spelunkomp-memcheck.ps1" \
-            "-Dir $(wq "$MEMCHECK_WIN_DIR") -Roms $(wq "$MEMCHECK_WIN_ROMS") -Games $(wq "$MEMCHECK_GAMES")" \
-            "-Seconds $MEMCHECK_SECONDS -Rewind $MEMCHECK_REWIND"
-}
-run_linux() {
-    local h=$MEMCHECK_LINUX w=spelunkomp-memcheck
-    run ssh "${SSH_OPTS[@]}" "$h" "mkdir -p $w" &&
-        run scp -q "${SSH_OPTS[@]}" "$HERE/play.sh" "$HERE/linux.sh" "$h:$w/" &&
-        run ssh "${SSH_OPTS[@]}" "$h" "MEMCHECK_GAMES=$(q "$MEMCHECK_GAMES") MEMCHECK_SECONDS=$MEMCHECK_SECONDS" \
-            "MEMCHECK_REWIND=$MEMCHECK_REWIND MEMCHECK_ENV_FROM=$(q "${MEMCHECK_ENV_FROM:-steam}")" \
-            "bash $w/linux.sh $(q "$MEMCHECK_LINUX_DIR") $(q "$MEMCHECK_LINUX_ROMS") $w/runs"
-}
+    step "copying win.ps1 to $h" scp -q "${SSH_OPTS[@]}" "$HERE/win.ps1" "$h:spelunkomp-memcheck.ps1"
+    step "the Windows run on $h" ssh "${SSH_OPTS[@]}" "$h" "powershell -NoProfile -ExecutionPolicy Bypass -File spelunkomp-memcheck.ps1" \
+        "-Dir $(wq "$MEMCHECK_WIN_DIR") -Roms $(wq "$MEMCHECK_WIN_ROMS") -Games $(wq "$MEMCHECK_GAMES")" \
+        "-Seconds $MEMCHECK_SECONDS -Rewind $MEMCHECK_REWIND"
+)
+run_linux() (
+    local h=$MEMCHECK_LINUX w
+    remote_home "$h" /home/USER
+    w="$RHOME/spelunkomp-memcheck"
+    step "making $w on $h" ssh "${SSH_OPTS[@]}" "$h" "mkdir -p $(q "$w")"
+    step "copying the runner to $h" scp -q "${SSH_OPTS[@]}" "$HERE/play.sh" "$HERE/linux.sh" "$h:$w/"
+    step "checking the copy on $h" ssh "${SSH_OPTS[@]}" "$h" "test -f $(q "$w/linux.sh") && test -f $(q "$w/play.sh")"
+    step "the Linux run on $h" ssh "${SSH_OPTS[@]}" "$h" "cd && MEMCHECK_GAMES=$(q "$MEMCHECK_GAMES") MEMCHECK_SECONDS=$MEMCHECK_SECONDS" \
+        "MEMCHECK_REWIND=$MEMCHECK_REWIND MEMCHECK_ENV_FROM=$(q "${MEMCHECK_ENV_FROM:-steam}")" \
+        "bash $(q "$w/linux.sh") $(q "$MEMCHECK_LINUX_DIR") $(q "$MEMCHECK_LINUX_ROMS") $(q "$w/runs")"
+)
 run_mac() {
     run bash "$HERE/mac.sh" "$MEMCHECK_MAC_APP" "$MEMCHECK_MAC_ROMS" "$OUT/mac"
 }
@@ -150,22 +171,40 @@ for s in "${SYSTEMS[@]}"; do
         printf "%-6s %-16s %5d MB %5d MB  %s\n", sys, n, peak[n], endmb[n], why ? "FAIL (" why ")" : "pass"
         return why == ""
     }
-    $1 == "case" { order[++k] = $2; cnt[$2] = 0; peak[$2] = 0; endmb[$2] = 0; last[$2] = 0 }
-    $1 == "sample" && $4 > 0 { n = $2; c = ++cnt[n]; T[n, c] = $3; M[n, c] = $4; last[n] = $3; endmb[n] = $4
-        if ($4 > peak[n]) peak[n] = $4
-        if ($3 >= 30 && $3 < 60 && (!(n in a3060) || $4 > a3060[n])) a3060[n] = $4 }
-    $1 == "end" { endst[$2] = $3 }
+    function bad_line() { if (++perr <= 3) pex[perr] = FNR ": " $0 }
+    function known(n) { if (n in seen) return 1; bad_line(); return 0 }
+    # (a run on Windows comes back with CRLF lines: the CR is dropped, from the line and its fields)
+    { sub(/\r+$/, "") }
+    NF == 0 || $1 == "memory" || $1 == "log" { next }
+    $1 ~ /^(error|warning):$/ { notes[++nn] = $0; next }
+    $1 == "case" && NF == 2 { if (!($2 in seen)) { seen[$2] = 1; order[++k] = $2; cnt[$2] = 0; peak[$2] = 0; endmb[$2] = 0; last[$2] = 0 }; next }
+    $1 == "sample" && NF == 4 && $3 ~ /^[0-9]+$/ && $4 ~ /^[0-9]+$/ {
+        n = $2
+        if (!known(n)) next
+        if ($4 + 0 == 0) next
+        c = ++cnt[n]; T[n, c] = $3 + 0; M[n, c] = $4 + 0; last[n] = $3 + 0; endmb[n] = $4 + 0
+        if ($4 + 0 > peak[n]) peak[n] = $4 + 0
+        if ($3 >= 30 && $3 < 60 && (!(n in a3060) || $4 + 0 > a3060[n])) a3060[n] = $4 + 0
+        next
+    }
+    $1 == "end" && NF == 3 { if (known($2)) endst[$2] = $3; next }
+    { bad_line() }
     END {
         bad = 0
         split(want, g, " "); for (i in g) expect[g[i]] = 1
         if (rewind != "none") expect[rewind "+rewind"] = 1
         for (i = 1; i <= k; i++) { if (!verdict(order[i])) bad = 1; delete expect[order[i]] }
         for (n in expect) { printf "%-6s %-16s %8s %8s  FAIL (not run)\n", sys, n, "-", "-"; bad = 1 }
+        if (perr) {
+            printf "%-6s PARSE ERROR: %d line(s) of %s.log not understood, as:\n", sys, perr, sys; bad = 1
+            for (i = 1; i <= perr && i <= 3; i++) printf "         line %s\n", pex[i]
+        }
+        for (i = 1; i <= nn; i++) printf "%-6s %s\n", sys, notes[i]
         exit bad
     }' "$OUT/$s.log" || status=1
 done
 for s in "${SYSTEMS[@]}"; do
-    m=$(sed -n 's/^memory //p' "$OUT/$s.log" | head -1)
+    m=$(tr -d '\r' < "$OUT/$s.log" | sed -n 's/^memory //p' | head -1)
     [ -z "$m" ] || echo "$s: $m"
 done
 [ "$status" = 0 ] && echo "memory check passed" || echo "MEMORY CHECK FAILED (logs: $OUT)"
