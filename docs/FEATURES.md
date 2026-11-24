@@ -2,8 +2,9 @@
 
 Everything a player can switch on, game by game. Every feature is off unless chosen (free play and "Straight to the
 title" are on to begin with, and can be turned off): with them all off a game plays as the board. They are chosen on
-the launcher's **Features** page, or while playing in the in-game menu (Esc, F1, a gamepad's left stick click, or
-Start and Select together). A game's program lists its own with `--list-features`.
+the launcher's **Features** page, or while playing in the in-game menu (Esc, F1, a gamepad's Guide, or Start and
+Select together; the Controllers page's Menu button can add the left stick's click, or leave only Start and
+Select). A game's program lists its own with `--list-features`.
 
 ## The games
 

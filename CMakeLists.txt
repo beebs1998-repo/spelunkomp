@@ -188,6 +188,11 @@ endif()
 file(STRINGS ${CMAKE_SOURCE_DIR}/VERSION RECOMP_VERSION LIMIT_COUNT 1)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/VERSION)
 target_compile_definitions(game PRIVATE RECOMP_VERSION="${RECOMP_VERSION}")
+# (the gamepad's buttons that open the in-game menu until the player chooses, on the launcher's Controllers page: Guide,
+# or Start and Select together. Not the left stick's click, which a player of a shooting game presses by accident.
+# The game's, for a game started on its own, and the launcher's: recomp-common/menu_buttons.h)
+set(LAUNCHER_MENU_BUTTON guide)
+target_compile_definitions(game PRIVATE RECOMP_MENU_BUTTON_DEFAULT="${LAUNCHER_MENU_BUTTON}")
 if(WIN32)
   target_link_libraries(game PRIVATE ws2_32 iphlpapi)
 endif()

@@ -125,7 +125,7 @@ Please don't attach ROM sets, save states or anything else from the game.
 | Move | arrows | d-pad |
 | Buttons 1 to 4 | Z X C V | A B X Y (south, east, west, north) |
 | Start, coin | Enter, 5 | Start, Select |
-| In-game menu | Esc or F1 | left stick click, or Start and Select together |
+| In-game menu | Esc or F1 | Guide, or Start and Select together |
 | Save, load a state | F5, F9 | (the menu) |
 | Pause, a frame on | P, O | (stopped) right trigger |
 | Set the practice point, back to it, replay | `\`, Backspace, `]` | right shoulder, left shoulder, right stick click |

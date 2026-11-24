@@ -36,7 +36,7 @@ launcher::Description describe_game(const char *config) {
     // (Android: the set is copied into the app's folder; the screen's controls have a Menu button, and Back opens it)
     d.file_intro = keep("Choose your own copy of the game: the arcade ROM set " + set + ".zip (" + name + ")" + discWhere +
                         ". Only this version works. It is copied into the app's folder.\n\nWhile playing, Back or the screen's "
-                        "Menu button, or the left stick's click (or Start and Select together) on a gamepad, opens the in-game menu.");
+                        "Menu button, or Guide (or Start and Select together) on a gamepad, opens the in-game menu.");
     d.file_empty = keep("None chosen. Choose " + set + ".zip.");
 #else
     d.file_intro = keep("Choose your own copy of the game: the arcade ROM set " + set + ".zip (" + name +
@@ -98,12 +98,13 @@ launcher::Description describe_game(const char *config) {
     d.controls_heading = "WHILE PLAYING";
 #ifdef __ANDROID__
     d.controls = {{"Touch", "A stick and the game's buttons on the screen, with Coin, Start and Menu (beside the picture held sideways, "
-                            "under it held upright); a gamepad's use hides them. Back, the left stick's click, or Start and Select "
-                            "together: the in-game menu (save states, speed, features, coin, reset, quit). "
+                            "under it held upright); a gamepad's use hides them. Back, a gamepad's Guide, or Start and Select "
+                            "together: the in-game menu (save states, speed, features, coin, reset, quit; Menu button, above: "
+                            "which gamepad buttons). "
                             "The first two gamepads are players 1 and 2."}};
 #else
-    d.controls = {{"Keys", "Esc, F1, the left stick's click, or Start and Select together: the in-game menu (save states, speed, "
-                           "features, coin, reset, quit)   F5 / F9: save and load a state   P: pause   O: a frame on   "
+    d.controls = {{"Keys", "Esc, F1, a gamepad's Guide, or Start and Select together: the in-game menu (save states, speed, "
+                           "features, coin, reset, quit; Menu button, above: which gamepad buttons)   F5 / F9: save and load a state   P: pause   O: a frame on   "
                            "F2: the board's test switch   F3: service   F11: full screen. "
                            "The first two gamepads are players 1 and 2."}};
 #endif
@@ -128,15 +129,15 @@ const launcher::Collection &launcher::describe_collection() {
         // launcher, App::choose_folder)
         c.intro = "Each game needs your own copy of it: its arcade ROM set. Add the sets from your phone or a drive: they are "
                   "copied into the app's folder.\n\n"
-                  "While playing, Back or the screen's Menu button, or the left stick's click (or Start and Select together) on a "
-                  "gamepad, opens the in-game menu.";
+                  "While playing, Back or the screen's Menu button, or Guide (or Start and Select together) on a gamepad, opens "
+                  "the in-game menu.";
         c.find_title = "Add your sets";
         c.find_detail = "Choose the ROM sets, as many as you like at once, by the set's name (mushisam.zip, say). Each goes to its game.";
 #else
         c.intro = "Each game needs your own copy of it: its arcade ROM set. Show the launcher the folder you keep them in, or "
                   "drop a set (or the folder) on this window. The sets stay where they are: the launcher only reads them.\n\n"
-                  "While playing, Esc or F1 on the keyboard, or the left stick's click (or Start and Select together) on a gamepad, "
-                  "opens the in-game menu.";
+                  "While playing, Esc or F1 on the keyboard, or Guide (or Start and Select together) on a gamepad, opens the "
+                  "in-game menu.";
         c.find_title = "Look in a folder";
         c.find_detail = "Finds each game's ROM set in a folder of them, by the set's name (mushisam.zip, say).";
 #endif
