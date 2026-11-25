@@ -179,7 +179,8 @@ The first two gamepads are players 1 and 2. Everything can be remapped on the la
 
 CMake, Ninja, a C++20 compiler, zlib and SDL 3. `make games` and `make launcher` build every game's program and the
 launcher; with your own ROM sets, the translators make each game's native code first. See
-[docs/BUILDING.md](docs/BUILDING.md).
+[docs/BUILDING.md](docs/BUILDING.md). To install locally, use the release zip or `tools/release/macos.sh`; `make app`
+needs translations.
 
 ## How it works
 

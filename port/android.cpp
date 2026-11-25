@@ -7,6 +7,7 @@
 // elsewhere), and RECOMP_LOG, the file its output goes to (logs/game.log). Without a log, the output goes to the
 // system's log (adb logcat, tag spelunkomp).
 #include "android.h"
+#include "build_note.h"
 
 #include "../runtime/game.h"
 
@@ -78,5 +79,5 @@ void StartOnAndroid() {
 // For the launcher, which has no game program to run with --list-features: it opens the game's library and asks
 // it (recomp-common/launcher/src/game_process.cpp). The text is the caller's to free.
 extern "C" __attribute__((visibility("default"))) char *RecompListFeatures() {
-    return strdup(recomp::FeatureListText(spelunk::AllFeatures()).c_str());
+    return strdup(port::FeatureListFor(spelunk::AllFeatures()).c_str());
 }

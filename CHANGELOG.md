@@ -5,6 +5,11 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **`make app` needs every game's translation**: it and `make collection` stop, naming each game without one and
+  the command that makes it, instead of quietly building programs that run on the interpreters. `INTERPRETED=1` builds
+  them anyway, marked: the app is `Spelunkomp (interpreted).app`, and such a program logs `interpreted build: no
+  translated code` and has a note on its launcher row.
+
 ## 0.3.0-beta.1
 
 A much lighter CV1000 (slower machines now hold 60), touch controls that follow the finger on Android, 99 save slots,

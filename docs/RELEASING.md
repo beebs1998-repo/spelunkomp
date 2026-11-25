@@ -23,6 +23,9 @@ build from source does. That means a download can only be built by someone with 
 machine: CI never builds or holds one. `tools/release/check_archive.sh` checks each archive before it is packed (no
 game files, no emulator's name and no home path in any program, the licences there).
 
+To install locally, use the release zip or `tools/release/macos.sh`; `make app` needs translations (it stops, naming
+each game without one and its translate command; `INTERPRETED=1` builds an app marked `(interpreted)`).
+
 **The launcher updates itself from these** (`recomp-common/launcher/src/update.h`), from 0.1.0-beta.1 on: when it
 opens it reads the repository's releases, takes the newest with a manifest for its system (a beta only while it is
 a beta itself), and compares the files the manifest lists with its own. **Update**, on the update card at the top of
