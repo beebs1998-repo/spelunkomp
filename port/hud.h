@@ -5,6 +5,7 @@
 // (Gpu::SetOverlay); the software path blends it into the picture.
 #pragma once
 
+#include "../recomp-common/menu_turn.h"
 #include "../recomp-common/text.h"
 
 #include <algorithm>
@@ -21,13 +22,16 @@ public:
     int width = 0, height = 0;
     std::vector<uint32_t> pixels; // red in the low byte, alpha in the high
 
-    // A frame's writing begins: nothing written yet
-    void Begin(int w, int h) {
+    // A frame's writing begins: nothing written yet. `turn`: the words' turn on this picture, in degrees clockwise
+    // (the Menu orientation: recomp-common/menu_turn.h), so they stand upright on a monitor turned on its side; the
+    // marks (the hit boxes) are the picture's own, never turned
+    void Begin(int w, int h, int turn = 0) {
         m_wordsBefore.swap(m_words);
         m_words.clear();
-        if (w != width || h != height) {
+        if (w != width || h != height || recomp::turn::Normal(turn) != m_turn) {
             width = w;
             height = h;
+            m_turn = recomp::turn::Normal(turn);
             pixels.assign(static_cast<size_t>(w) * h, 0);
             m_wordsBefore = "\x01"; // (drawn again)
         }
@@ -97,7 +101,9 @@ public:
         if (m_words.empty()) {
             return true;
         }
-        const recomp::text::Canvas canvas{pixels.data(), width, height};
+        m_to = pixels.data();
+        m_toW = width;
+        m_toH = height;
         for (const MarkBox &m : m_marks) {
             Box(m.x0, m.y0, m.x1 - m.x0, m.y1 - m.y0, m.fill);
             if (m.edge >> 24) {
@@ -108,6 +114,50 @@ public:
                 Box(m.x1, m.y0, t, m.y1 - m.y0, m.edge);
             }
         }
+        if (m_turn == 0) {
+            Words(width, height);
+            return true;
+        }
+        // (turned: the words drawn upright on a picture of the turned screen's shape, then turned onto this one over
+        // the marks)
+        int uw = 0, uh = 0;
+        recomp::turn::TurnedSize(m_turn, width, height, uw, uh);
+        m_upright.assign(static_cast<size_t>(uw) * uh, 0);
+        m_to = m_upright.data();
+        m_toW = uw;
+        m_toH = uh;
+        Words(uw, uh);
+        m_turned.resize(pixels.size());
+        recomp::turn::TurnPixels(m_upright.data(), uw, uh, m_turn, m_turned.data());
+        for (size_t i = 0; i < pixels.size(); i++) {
+            if (m_turned[i] >> 24) {
+                pixels[i] = m_turned[i];
+            }
+        }
+        m_to = pixels.data();
+        m_toW = width;
+        m_toH = height;
+        return true;
+    }
+    // Blended into a picture of the same size (the software path)
+    void Over(uint32_t *picture) const {
+        for (size_t i = 0; i < pixels.size(); i++) {
+            const uint32_t o = pixels[i], a = o >> 24;
+            if (!a) {
+                continue;
+            }
+            const uint32_t p = picture[i];
+            const uint32_t r = ((p & 0xFF) * (255 - a) + (o & 0xFF) * a) / 255;
+            const uint32_t g = (((p >> 8) & 0xFF) * (255 - a) + ((o >> 8) & 0xFF) * a) / 255;
+            const uint32_t b = (((p >> 16) & 0xFF) * (255 - a) + ((o >> 16) & 0xFF) * a) / 255;
+            picture[i] = 0xFF000000u | (b << 16) | (g << 8) | r;
+        }
+    }
+
+private:
+    // The words (all but the marks) on the picture m_to is (width x height: this one's, or the turned screen's)
+    void Words(int width, int height) {
+        const recomp::text::Canvas canvas{m_to, width, height};
         if (!m_note.empty() && m_words.find("N:") != std::string::npos) {
             // (a long one, a shader's error say, in lines across the picture)
             const float dot = 2, most = static_cast<float>(width) - 48;
@@ -162,24 +212,8 @@ public:
                 canvas.Text(static_cast<float>(bx + 5), static_cast<float>(by - cell + 2), 2, 0, {220, 220, 220, 255}, digit);
             }
         }
-        return true;
-    }
-    // Blended into a picture of the same size (the software path)
-    void Over(uint32_t *picture) const {
-        for (size_t i = 0; i < pixels.size(); i++) {
-            const uint32_t o = pixels[i], a = o >> 24;
-            if (!a) {
-                continue;
-            }
-            const uint32_t p = picture[i];
-            const uint32_t r = ((p & 0xFF) * (255 - a) + (o & 0xFF) * a) / 255;
-            const uint32_t g = (((p >> 8) & 0xFF) * (255 - a) + ((o >> 8) & 0xFF) * a) / 255;
-            const uint32_t b = (((p >> 16) & 0xFF) * (255 - a) + ((o >> 16) & 0xFF) * a) / 255;
-            picture[i] = 0xFF000000u | (b << 16) | (g << 8) | r;
-        }
     }
 
-private:
     struct MarkBox {
         int x0, y0, x1, y1;
         uint32_t fill, edge;
@@ -196,10 +230,14 @@ private:
     bool m_drawn = false, m_showInputs = false, m_showCorner = false, m_showLine = false;
     std::string m_corner, m_line;
     uint32_t m_inputs = 0;
+    int m_turn = 0;
+    std::vector<uint32_t> m_upright, m_turned; // (the words upright, and turned: m_turn)
+    uint32_t *m_to = nullptr;                  // (where Box draws, m_toW x m_toH)
+    int m_toW = 0, m_toH = 0;
     void Box(int x, int y, int w, int h, uint32_t colour) {
-        for (int py = std::max(y, 0); py < std::min(y + h, height); py++) {
-            for (int px = std::max(x, 0); px < std::min(x + w, width); px++) {
-                pixels[static_cast<size_t>(py) * width + px] = colour;
+        for (int py = std::max(y, 0); py < std::min(y + h, m_toH); py++) {
+            for (int px = std::max(x, 0); px < std::min(x + w, m_toW); px++) {
+                m_to[static_cast<size_t>(py) * m_toW + px] = colour;
             }
         }
     }

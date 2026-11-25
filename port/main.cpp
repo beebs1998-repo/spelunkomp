@@ -25,6 +25,7 @@
 #include "../recomp-common/menu.h"
 #include "../recomp-common/menu_layout.h"
 #include "../recomp-common/menu_sdl.h"
+#include "../recomp-common/menu_turn.h"
 #include "../recomp-common/own_shaders.h"
 #include "../runtime/dodge.h"
 #include "../runtime/game.h"
@@ -263,8 +264,11 @@ struct Controls {
     SDL_Gamepad *pads[2] = {};
     port::TouchControls *touch = nullptr; // (a touch screen's: player 1's, beside the keys and the first gamepad)
     bool readThisFrame = false;
-    bool coinHeld = false;
+    bool coinHeld = false, testHeld = false;
     int coinFrames = 0, testFrames = 0;
+    // (a press of the test switch is held at least this long: Guwange looks for it held about half a second, so a tap of
+    // F2 or the menu's command, 10 frames, went unseen)
+    static constexpr int kTestPressFrames = 60;
     bool nineService = true; // (9 is the service switch too, unless a control has been given it)
     uint32_t scripted[2] = {0, 0}, scriptedSystem = 0; // (checks: --press and --system)
     uint64_t reads = 0;
@@ -308,7 +312,12 @@ struct Controls {
             coinFrames--;
             system |= kSysCoin1;
         }
-        if (keys[SDL_SCANCODE_F2] || testFrames > 0) {
+        const bool test = keys[SDL_SCANCODE_F2];
+        if (test && !testHeld) {
+            testFrames = kTestPressFrames;
+        }
+        testHeld = test;
+        if (test || testFrames > 0) {
             system |= kSysTest;
             testFrames -= testFrames > 0;
         }
@@ -659,6 +668,11 @@ int main(int argc, char **argv) {
         }
         return screen == 1 ? 0 : screen == 2 ? 180 : rotate;
     };
+    // The Menu orientation feature's turn of the menu and the tools' writing on the window, in degrees clockwise
+    // (recomp-common/menu_turn.h): Auto, as the game's picture stands, so with the picture shown as the board sends it
+    // for a monitor on its side they turn with it; Upright, never turned (as before); or a turn chosen
+    const size_t menuTurnAt = FeatureIndex("menu_orientation");
+    auto menuTurnNow = [&]() { return recomp::turn::MenuTurn(menuTurnAt < features.size() ? features[menuTurnAt] : 0, turnNow(), rotate); };
     // ... and its shape, in board pixels on its long side (the other side as the shape makes it): the Aspect feature's.
     // As the cabinet: the 4:3 of the board's monitor (3:4 turned), whatever the board's own pixel count (a PGM's 448 x
     // 224 was drawn across a 4:3 monitor, its pixels narrower than tall); Square pixels: the board's pixels as they are
@@ -1565,6 +1579,33 @@ int main(int argc, char **argv) {
     // (compact as the Arcade monitor page asks, or by itself on an arcade monitor: recomp-common/arcade_sdl.h)
     const size_t compactAt = FeatureIndex("crt_compact_menu");
     auto compactMenu = [&]() { return (compactAt < features.size() && features[compactAt]) || arcade.OnArcade(window); };
+    // The menu's own picture: the picture under it (frozen) turned back by the menu's turn, so the menu lays itself out
+    // for the screen as the player has it (a monitor turned on its side: taller than wide); drawn there, then turned
+    // onto the picture as shown (shown, frozenW x frozenH). Not turned: drawn on frozen as it is
+    std::vector<uint32_t> menuOwn, menuUnder;
+    int menuTurn = 0, menuW = 0, menuH = 0;
+    auto standMenu = [&]() {
+        menuTurn = menuTurnNow();
+        recomp::turn::TurnedSize(menuTurn, frozenW, frozenH, menuW, menuH);
+        if (menuTurn) {
+            menuUnder.resize(frozen.size());
+            recomp::turn::TurnPixels(frozen.data(), frozenW, frozenH, 360 - menuTurn, menuUnder.data());
+        }
+    };
+    auto drawMenu = [&]() {
+        if (menuTurnNow() != menuTurn) {
+            standMenu(); // (the Menu orientation changed in the menu: turned at once)
+        }
+        if (!menuTurn) {
+            shown = frozen;
+            menu.Draw(shown.data(), frozenW, frozenH);
+            return;
+        }
+        menuOwn = menuUnder;
+        menu.Draw(menuOwn.data(), menuW, menuH);
+        shown.resize(frozen.size());
+        recomp::turn::TurnPixels(menuOwn.data(), menuW, menuH, menuTurn, shown.data());
+    };
     auto openMenu = [&]() {
         readScreen(picture.data());
         canvasSize(frozenW, frozenH); // (the picture's shape as shown, three times the board's size: room for the text)
@@ -1576,17 +1617,18 @@ int main(int argc, char **argv) {
         }
         menu.SetCompact(compactMenu());
         TurnTo(picture.data(), turnNow(), frozenW, frozenH, frozen);
+        standMenu();
         ownMenuRow(); // (the presets there now)
         menu.Configure(menuConfig);
         menu.Open();
         menuRepeat.Step(menuHeld()); // (what opened it is not also a press in it)
     };
-    // Where the menu's picture (frozenW x frozenH, drawn upright over the picture as shown, whatever the Screen's turn)
-    // is in the window: place(), in the window's pixels, as show() puts it there on every path (SDL's renderer, the
-    // GPU's, a shader's)
+    // Where the menu's picture (menuW x menuH, turned by menuTurn onto the picture as shown, frozenW x frozenH) is in
+    // the window: place(), in the window's pixels, as show() puts it there on every path (SDL's renderer, the GPU's, a
+    // shader's); the mouse and the fingers mapped back through the turn
     auto menuPlace = [&]() {
         const SDL_FRect to = place();
-        return recomp::sdl::MenuPlace{to.x, to.y, to.w, to.h, frozenW, frozenH};
+        return recomp::sdl::MenuPlace{to.x, to.y, to.w, to.h, menuW, menuH, menuTurn};
     };
     // F12: the board's picture as it is shown (turned and shaped, three times the board's size; no shader, no tools'
     // writing) into the saves folder's screenshots/, named by the game and the time
@@ -1693,7 +1735,7 @@ int main(int argc, char **argv) {
             if (chosen.id == 1) {
                 controls.coinFrames = 4;
             } else if (chosen.id == 2) {
-                controls.testFrames = 10;
+                controls.testFrames = controls.kTestPressFrames;
             }
             menu.Close();
             break;
@@ -2010,7 +2052,7 @@ int main(int argc, char **argv) {
     auto netWaitScreen = [&]() {
         int w = 0, h = 0;
         canvasSize(w, h);
-        hud.Begin(w, h);
+        hud.Begin(w, h, menuTurnNow());
         netScreen.Wait(hud, net.get(), netEnded, tick);
         hud.Changed();
         shown.assign(static_cast<size_t>(w) * h, 0xFF000000u);
@@ -2087,15 +2129,18 @@ int main(int argc, char **argv) {
         bool down = false, slid = false;
         float x0 = 0, y0 = 0, stepY = 0;
     } menuFinger;
-    touch.before = [&](const SDL_Event &e, float x, float y) {
+    touch.before = [&](const SDL_Event &e, float windowX, float windowY) {
         const recomp::sdl::MenuPlace at = menuPlace();
+        // (where the finger is in the menu's own picture, through its turn: a slide is up or down the menu as it stands)
+        float x = 0, y = 0;
+        at.ToMenu(windowX, windowY, x, y);
         auto tell = [&](recomp::MenuMouse what) {
             if (at.w > 0 && at.h > 0) {
-                menuTaps.push_back(menu.Mouse(what, (x - at.x) * at.width / at.w, (y - at.y) * at.height / at.h));
+                menuTaps.push_back(menu.Mouse(what, x, y));
             }
         };
         if (e.type == SDL_EVENT_FINGER_DOWN) {
-            if (net || !menu.IsOpen() || touch.OnButton(x, y)) {
+            if (net || !menu.IsOpen() || touch.OnButton(windowX, windowY)) {
                 return false;
             }
             menuFinger = {e.tfinger.fingerID, true, false, x, y, y};
@@ -2107,7 +2152,7 @@ int main(int argc, char **argv) {
         }
         if (e.type == SDL_EVENT_FINGER_MOTION) {
             // (a row's worth of sliding, about a twentieth of the menu's height, is a row)
-            const float row = std::max(1.0f, at.h / 20);
+            const float row = std::max(1.0f, at.height / 20.0f);
             menuFinger.slid = menuFinger.slid || std::hypot(x - menuFinger.x0, y - menuFinger.y0) > row * 0.5f;
             for (; menu.IsOpen() && menuFinger.slid && y - menuFinger.stepY <= -row; menuFinger.stepY -= row) {
                 tell(recomp::MenuMouse::WheelDown);
@@ -2394,8 +2439,7 @@ int main(int argc, char **argv) {
             }
         }
         if (menu.IsOpen()) {
-            shown = frozen;
-            menu.Draw(shown.data(), frozenW, frozenH);
+            drawMenu();
             show(shown, frozenW, frozenH);
             SDL_Delay(16);
             next = std::chrono::steady_clock::now();
@@ -2436,7 +2480,7 @@ int main(int argc, char **argv) {
                 pauseShown = true;
                 int w = 0, h = 0;
                 canvasSize(w, h);
-                hud.Begin(w, h);
+                hud.Begin(w, h, menuTurnNow());
                 hud.Note(("STOPPED  FRAME " + std::to_string(frameCount)).c_str());
                 hud.Changed();
                 hw.SetOverlay(hud);
@@ -2714,7 +2758,7 @@ int main(int argc, char **argv) {
                 // (a CV1000's boot takes a few seconds even so: said, on black, a few times a second)
                 int w = 0, h = 0;
                 canvasSize(w, h);
-                hud.Begin(w, h);
+                hud.Begin(w, h, menuTurnNow());
                 hud.Text(0.5f, 0.5f, 0, "STRAIGHT TO THE TITLE...", 0xFFB0B0B0u);
                 hud.Changed();
                 shown.assign(static_cast<size_t>(w) * h, 0xFF000000u);
@@ -2741,7 +2785,7 @@ int main(int argc, char **argv) {
         {
             int canvasW = 0, canvasH = 0;
             canvasSize(canvasW, canvasH);
-            hud.Begin(canvasW, canvasH);
+            hud.Begin(canvasW, canvasH, menuTurnNow());
             if (paused) {
                 hud.Note(("STOPPED  FRAME " + std::to_string(frameCount)).c_str()); // (a frame on: which it is)
             } else if (noteFrames > 0) {
@@ -2926,8 +2970,7 @@ int main(int argc, char **argv) {
                     // (a finger's tap, half way across and at that tenth of the way down the window: the menu's taps)
                     int ow = 0, oh = 0;
                     SDL_GetWindowSizeInPixels(window, &ow, &oh);
-                    shown = frozen;
-                    menu.Draw(shown.data(), frozenW, frozenH);
+                    drawMenu();
                     touch.Layout(ow, oh, place());
                     const float y = (static_cast<float>(k - '0') + 0.5f) / 10 * static_cast<float>(oh);
                     touch.Scripted(SDL_EVENT_FINGER_DOWN, ow / 2.0f, y);
@@ -2943,16 +2986,14 @@ int main(int argc, char **argv) {
                 }
                 const unsigned b = k == 'u' ? recomp::kMenuUp : k == 'd' ? recomp::kMenuDown : k == 'l' ? recomp::kMenuLeft
                                  : k == 'r' ? recomp::kMenuRight : k == 'c' ? recomp::kMenuConfirm : recomp::kMenuBack;
-                shown = frozen;
-                menu.Draw(shown.data(), frozenW, frozenH);
+                drawMenu();
                 handleChosen(menu.Buttons(b));
                 if (!menu.IsOpen()) {
                     break;
                 }
             }
             if (menu.IsOpen()) {
-                shown = frozen;
-                menu.Draw(shown.data(), frozenW, frozenH);
+                drawMenu();
             }
             WritePng(test.shot.c_str(), shown.data(), static_cast<uint32_t>(frozenW), static_cast<uint32_t>(frozenH));
             menu.Close();
