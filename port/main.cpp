@@ -13,7 +13,8 @@
 // it), F5 / F9 save and load a state, F6 / F7 the slot before and after, P pause, O a frame on while paused (as do
 // Tab and a gamepad's right trigger, fast forward's, while paused), - and = slower and faster, F11 or Alt+Enter full
 // screen, F12 a screenshot (the saves folder's screenshots/). A key a control has been given (the launcher's
-// Controllers page) does only that. Gamepads: the first two are players 1 and 2; Guide or Start and Select together
+// Controllers page) does only that. Gamepads: the Controllers page says which is which player's (or Not used), the rest
+// go, in the order they were connected, to the players without one; Guide or Start and Select together
 // opens the menu and closes it (the launcher's Menu button can add the left stick's click, or leave only Start and
 // Select: recomp-common/menu_buttons.h). The menu's own controls and the mouse: recomp-common/menu_sdl.h.
 //
@@ -262,8 +263,8 @@ struct Controls {
     Board *board = nullptr;
     const port::BoundTable *table = nullptr;
     const recomp::Bindings *bindings = nullptr;
-    SDL_Gamepad *pads[2] = {};
-    port::TouchControls *touch = nullptr; // (a touch screen's: player 1's, beside the keys and the first gamepad)
+    SDL_Gamepad *pads[recomp::kBindMaxPlayers] = {}; // (each player's, given out by the frontend; nullptr: none)
+    port::TouchControls *touch = nullptr; // (a touch screen's: player 1's, beside the keys and player 1's gamepad)
     bool readThisFrame = false;
     bool coinHeld = false, testHeld = false;
     int coinFrames = 0, testFrames = 0;
@@ -1476,6 +1477,18 @@ int main(int argc, char **argv) {
     controls.table = &table;
     controls.bindings = &bindings;
     controls.features = &features;
+    // The gamepads: every one connected, each in a seat (a let-go one's seat stays empty for the next), and each
+    // player's from them: those the launcher's Controllers page gave a player, then the rest in their seats' order
+    // (recomp-common bindings.h: [controllers]); given out again when one comes or goes, not every frame
+    const recomp::PadChoices padChoices = settingsPath.empty() ? recomp::PadChoices{} : recomp::LoadPadChoices(settingsPath);
+    SDL_Gamepad *seats[8] = {};
+    auto seated = [&]() {
+        int count = 0;
+        for (int i = 0; i < 8; i++) {
+            count = seats[i] ? i + 1 : count;
+        }
+        recomp::AssignPads(padChoices, seats, count, 2, controls.pads);
+    };
     // A key a control has been given (the launcher's Controllers page): it does only that, not a hotkey's work
     auto keyBound = [&](SDL_Scancode key) {
         for (int p = 0; p < 2; p++) {
@@ -2006,7 +2019,7 @@ int main(int argc, char **argv) {
         }
         controls.forced = nullptr;
     };
-    // This side's player's controls for the match: player 1's (keys and the first gamepad), whichever side it plays
+    // This side's player's controls for the match: player 1's (keys and player 1's gamepad), whichever side it plays
     auto netControls = [&]() -> uint16_t {
         SDL_PumpEvents();
         static const bool none[SDL_SCANCODE_COUNT] = {};
@@ -2331,19 +2344,21 @@ int main(int argc, char **argv) {
                     toggleMenu();
                 }
             } else if (e.type == SDL_EVENT_GAMEPAD_ADDED) {
-                for (auto &p : controls.pads) {
+                for (auto &p : seats) {
                     if (!p) {
                         p = SDL_OpenGamepad(e.gdevice.which);
                         break;
                     }
                 }
+                seated();
             } else if (e.type == SDL_EVENT_GAMEPAD_REMOVED) {
-                for (auto &p : controls.pads) {
+                for (auto &p : seats) {
                     if (p && SDL_GetGamepadID(p) == e.gdevice.which) {
                         SDL_CloseGamepad(p);
                         p = nullptr;
                     }
                 }
+                seated();
             }
             if (((e.type == SDL_EVENT_KEY_DOWN && !e.key.repeat) || e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) && !menu.IsOpen() && !lag.pressedAt &&
                 lagOn()) {

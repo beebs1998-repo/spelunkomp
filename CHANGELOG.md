@@ -5,6 +5,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **Which controller is which player** (recomp-common#99): the launcher's Controllers page gives each connected
+  gamepad Automatic, Player 1, Player 2 or Not used (kept in settings.ini's `[controllers]`); the rest go to the
+  players without one in the order they were connected, as before. A Steam Deck's own controls can be Not used, so
+  two pads plugged into it play each other. Every connected gamepad is now opened, not only the first two.
 - **The board's settings and autofire** (#56). A **Board** page (under Game, in the menu and the launcher) has each
   game's own test-menu settings: difficulty, lives, extends, continues, the board's own full-auto button and the like,
   put into the board's EEPROM (the PGM's battery RAM) as the board starts, the game's checksum made again where it has

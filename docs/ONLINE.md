@@ -61,7 +61,7 @@ it); over the internet, the host's public address with UDP port 7845 forwarded t
 
 - **Each player presses Start to come in**, as at the arcade: the first to press plays alone until the other presses
   theirs. "PRESS START TO JOIN" shows until you have.
-- **Each player plays with their own player 1 controls** (keys and the first gamepad), and sees the game as their own
+- **Each player plays with their own player 1 controls** (keys and player 1's gamepad: the launcher's Controllers page says which), and sees the game as their own
   settings have it (the Display page: the screen's turn, the scaling), and hears it as theirs have it (the Sound
   page's Sound filter).
 - **The host's game is the match's**: the match begins at the board's power-on with the host's EEPROM (the game's own
