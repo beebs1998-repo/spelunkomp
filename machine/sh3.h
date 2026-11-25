@@ -223,6 +223,7 @@ public:
     ref::Sh3Paths refPaths;
     uint64 shadowEvents = 0;
     uint64 shadowSkips = 0, shadowSkipTurns = 0; // (poll-loop skips checked against the turns run, PollTurn)
+    uint64 shadowAtOnce = 0; // (of them, worked out all at once, and checked against turn by turn as well)
     struct ShadowRecord {
         char kind;
         uint32 insn, address, bytes, got, want;

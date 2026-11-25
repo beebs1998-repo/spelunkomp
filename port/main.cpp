@@ -3342,9 +3342,10 @@ int main(int argc, char **argv) {
     hostTime.Report(SDL_GetTicksNS());
 #ifdef SPELUNK_SHADOW_TIMING
     // (the shadow check's runs of the game program, as the headless runner says it: port/headless.cpp)
-    fprintf(stderr, "shadow: %llu events compared with the reference model, all the same; %llu poll-loop skips (%llu turns) the same as the turns run\n",
+    fprintf(stderr, "shadow: %llu events compared with the reference model, all the same; %llu poll-loop skips (%llu turns) the same as the turns run, "
+            "%llu of them worked out all at once and the same turn by turn\n",
             static_cast<unsigned long long>(board->cpu.shadowEvents), static_cast<unsigned long long>(board->cpu.shadowSkips),
-            static_cast<unsigned long long>(board->cpu.shadowSkipTurns));
+            static_cast<unsigned long long>(board->cpu.shadowSkipTurns), static_cast<unsigned long long>(board->cpu.shadowAtOnce));
 #endif
     if (!aheadKept.frames.empty()) {
         hw.NetBack(aheadKept.frames.front().place); // (the game's own frame, for what is said and kept at the end)

@@ -539,7 +539,17 @@ after it is run as the board runs it. With the slowdown on, the list's end is al
 the block anyway. It is the busiest loop of another shape left after the frame's wait: 1.4% to 6.7% of the timing
 events, most in Mushihimesama, Matsuri and the dfk/sdoj engine's games.
 
-The shadow build (tools/shadow/) runs every skip both ways. It works the turns out, puts everything back, runs the
+Where every turn is alike, the turns are worked out all at once rather than one by one: a word of main RAM reads the
+same each turn, so once the last turn has read it, each turn after leaves the registers as they are and costs the same
+cycles. The number of turns is the number begun under the block's stop, and the cycles and the moving times go on by
+that many turns' cycles. The blitter's status is alike up to the last turn whose read comes before the list's end
+(found by halving, Bus::ReadSteady being true up to a cycle and at every one before it). A timer's count, which reads
+otherwise each turn, is still worked out turn by turn. On Muchi Muchi Pork!'s stage 1 boss that is about 100,000
+turns a frame once each: about 7% of the headless runner's time there.
+
+The shadow build (tools/shadow/) runs every skip both ways. A skip worked out all at once is also worked out turn by
+turn, from where it began, and the two must give the same turns, cycles, registers, T, timers and model. Then it
+puts everything back, runs the
 same turns through the interpreter with both models at every event, and compares registers, cycles, T, the timers and
 the model's every field. The first difference stops the run; the run goes on from the turns run. Muchi Muchi Pork!'s
 boss state, 600 frames: 14,878 skips of 99 million turns, every one the same, and the per-frame hash log identical to
