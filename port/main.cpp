@@ -32,6 +32,7 @@
 #include "../runtime/romset.h"
 #include "../runtime/state.h"
 #include "bindings.h"
+#include "build_note.h"
 #include "crash_log.h"
 #include "host_time.h"
 #include "hud.h"
@@ -369,7 +370,7 @@ int main(int argc, char **argv) {
         }
         const std::string a = argv[i];
         if (a == "--list-features") {
-            fputs(recomp::FeatureListText(AllFeatures()).c_str(), stdout); // (the launcher's Features page)
+            fputs(port::FeatureListFor(AllFeatures()).c_str(), stdout); // (the launcher's Features page, and its note)
             return 0;
         }
         if (a == "--game" && i + 1 < argc) {
@@ -441,6 +442,9 @@ int main(int argc, char **argv) {
         } else if (a == "--features" && i + 1 < argc) {
             forcedFeatures = argv[++i]; // name=N (or a choice by name),name,-name whatever settings.ini says (checks)
         }
+    }
+    if (port::kInterpretedBuild) {
+        fprintf(stderr, "%s\n", port::kInterpretedLog); // (the game runs on the interpreters: port/build_note.h)
     }
     GameConfig config;
     std::string error;
