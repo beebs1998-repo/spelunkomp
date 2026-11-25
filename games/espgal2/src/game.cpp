@@ -83,6 +83,10 @@ const Game &ThisGame() {
         f.gauges = {{espgal2::kBarrier, espgal2::kBarrierFull}, {espgal2::kBarrier + 4, espgal2::kBarrierFull}};
         f.bombsTitle = "Barrier never runs out";
         f.bombsWords = "The guard barrier's gauge is kept full.";
+        f.fullGauges.push_back({"gems_full", "Gems kept full",
+                                "The green gems are kept at 500, the most there can be: Kakusei whenever you want it, for as "
+                                "long as you want it.",
+                                espgal2::kGems, espgal2::kGemsFull, 4});
         f.safeFrames = espgal2::kSafeFrames;
         f.bossTunes.assign(std::begin(espgal2::kBossTunes), std::end(espgal2::kBossTunes));
         f.shipState = espgal2::kShipState;

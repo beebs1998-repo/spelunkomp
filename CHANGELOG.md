@@ -5,6 +5,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **Gems and energy kept full** (#55): two Training mode switches. Espgaluda II's "Gems kept full" holds the green
+  gems at 500, the most the game allows, so Kakusei lasts as long as you want. Akai Katana's "Energy kept full" holds
+  the energy gauge that Phantom form spends at the most the life bar leaves it. Akai Katana's Controllers page now
+  names its buttons 3 and 4 as the game uses them: button 3 is full auto and button 4 is Phantom.
 - **Rewind works on the PGM games** (#48). Holding rewind in Dai-Ou-Jou Black Label, Ketsui, Espgaluda or DoDonPachi
   II only paused the game or went back a few frames: the board's saved state changes size with the number of sprites
   on screen, and each change threw rewind's history away. Rewind now keeps a state of any size. Save states are

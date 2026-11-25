@@ -29,6 +29,11 @@ constexpr uint32_t kScore = 0x0C37D70Cu;      // the score's low word
 constexpr uint32_t kShipState = 0x0C37D718u;  // 1 while the ship is flown, 2 as it is lost and comes back, 3 with none left
 constexpr uint32_t kBarrier = 0x0C37D788u;    // the guard barrier's gauge, and again in the next word (4000 full)
 constexpr uint32_t kBarrierFull = 4000;
+// The green gems (32 bits, + 0x70 of the record at 0x0C37D6FC; 500 the most): found 2026-11-25 as the one word of the
+// record that is the count the picture shows, and by watching what writes it: the routine that adds gems, 0x0C068BD0
+// (r4 the record, r5 the gems), puts 500 there in place of any count above 499, so 500 is the game's own most
+constexpr uint32_t kGems = 0x0C37D76Cu;
+constexpr uint32_t kGemsFull = 500;
 // The frames the ship is still out of harm for (0xDA as it comes back, counted down)
 constexpr uint32_t kSafeFrames = 0x0C37D7B0u;
 

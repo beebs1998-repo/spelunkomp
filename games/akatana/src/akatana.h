@@ -26,6 +26,14 @@ constexpr uint32_t kSafeFrames = 0x0C7E87C8u;
 // picture, from a pool: why it moved)
 constexpr uint32_t kShips = kRecord + 12;
 constexpr uint32_t kLifePerShip = 1600;
+// The energy that Phantom form (button 4 here: input 0x80, held) spends, 5 a frame (32 bits, kRecord + 0x14; found
+// 2026-11-25 as the word that follows the green part of the life's bar, filled by the energy items a tapped shot's
+// kills leave, 20 each, and spent only with button 4 held). The bar is one of kBarTotal (kRecord + 0x1C, 8000, put
+// there as a game begins: 0x0C1F7A30): the life's ceiling (kShips) takes the yellow part and the energy the rest. The
+// routine that adds energy, 0x0C1F9470 (r5 the energy), holds it at kBarTotal - kShips, so that is the most it can
+// be: 3200 with three ships, more as ships are lost
+constexpr uint32_t kEnergy = kRecord + 0x14;
+constexpr uint32_t kBarTotal = kRecord + 0x1C;
 // The bombs left (a byte; the most it can be is the byte after it, 3 to begin with; found by RAM dumps with and
 // without bombs used). The bomb is button 2
 constexpr uint32_t kBombs = kRecord + 0x28;
