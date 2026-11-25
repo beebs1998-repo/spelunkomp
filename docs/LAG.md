@@ -33,6 +33,19 @@ slowdown, and the same state hash whatever the setting (the check below). The ri
 more shows a jump when a press changes what the frames run ahead had assumed. It is off by default, as every change
 from the board is.
 
+**Its frames kept** (run-ahead 1 and 2, offline). Run as above, each frame shown cost one frame and N more, all run
+again at the next frame. Now the frames ahead are run as the game's own would be (`hw.NetKeep`, online play's exact
+moment: the sound chips run, the sound decoders' history kept too, and each frame's sound put aside), with the
+controls as held at the frame's start, and the board left at the last of them. At the next frame the controls are
+read as the game would read them; when they are the same as the first frame ahead was given, that frame is the game's
+next one and is taken as it is, with its sound, and only one frame more is run for the picture ahead. When they are
+not (or a coin, Start, the test switch, the menu, a training tool or a check wants the board), the board is put back
+(`hw.NetBack`) and the frame run as ever. So with the controls held steady a frame shown costs one frame and a kept
+moment, whatever the setting; a change costs what it did. The frames, the picture shown and the sound are the same
+as without it, byte for byte (the state hash, the picture log and `--sound-log` compared, below);
+`SPELUNK_NO_AHEAD_KEEP=1` turns it off. The program says at its end how many frames were kept and how many run
+again.
+
 ## Measured, not assumed
 
 `tools/lag.sh ROMS` (GAME=<id>): into play, then the stick pushed at a known frame; the first frame whose picture

@@ -41,6 +41,11 @@ public:
     bool rateChanged = false;
 
     void Serialize(Archive &ar);
+    // The decoders' filter history, which Serialize does not keep (a state file stays small, and a click is all it
+    // costs there), kept and put back with the board's exact moments (Cv1000::KeepNow, PutBack): online play's rollback
+    // and run-ahead's kept frames then make the same sound as the frames run once
+    void KeepDecoders(int which);
+    void PutBackDecoders(int which);
 
 private:
     struct Channel {
@@ -69,6 +74,8 @@ private:
     };
     Channel m_channels[16];
     std::unique_ptr<AmmDecoder> m_decoders[16];
+    std::unique_ptr<AmmDecoder> m_keptDecoders[2][16];
+    bool m_keptHas[2][16] = {};
     std::vector<int16_t> m_block[16];
     Sequence m_sequences[8];
     uint8_t m_mute = 0, m_volume = 0, m_boost = 0, m_clip = 0;

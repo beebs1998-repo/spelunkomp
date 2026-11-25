@@ -60,6 +60,7 @@
 #include <SDL3/SDL_main.h> // (on Android the game is a library: its main is called by its activity, port/android.cpp)
 
 #include <algorithm>
+#include <deque>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -280,6 +281,27 @@ struct Controls {
     const uint32_t *forced = nullptr;
     // The features (autofire's, the Controls page: runtime/board_settings.h)
     const std::vector<int> *features = nullptr;
+    // (forced controls as held: autofire put in as the frame reads them, as for the host's own. Run-ahead's kept frames)
+    bool forcedAutofire = false;
+
+    // The controls as Read would make them now, with nothing changed (the coin's pulse, the test switch's hold): the
+    // players' as held (before autofire) and the switches. True when nothing but the players' sticks and buttons is
+    // held or under way (no coin, Start, test or service): only then may run-ahead keep its frames
+    bool Sample(uint32_t out[3]) const {
+        SDL_PumpEvents();
+        const bool *keys = SDL_GetKeyboardState(nullptr);
+        if (touch && touch->Shown()) {
+            return false; // (the touch screen's controls are read once a frame, a tap lasting some frames: not asked twice)
+        }
+        const uint32_t p1 = port::BoundBits(*table, *bindings, 0, keys, pads[0]);
+        const uint32_t p2 = port::BoundBits(*table, *bindings, 1, keys, pads[1]);
+        out[0] = (p1 & 0xFF) | scripted[0];
+        out[1] = (p2 & 0xFF) | scripted[1];
+        out[2] = scriptedSystem;
+        const bool switches = ((p1 | p2) & (port::kStartBit | port::kCoinBit)) || coinHeld || coinFrames > 0 || testFrames > 0 ||
+                              keys[SDL_SCANCODE_F2] || keys[SDL_SCANCODE_F3] || (nineService && keys[SDL_SCANCODE_9]);
+        return !switches && out[2] == 0 && !attract;
+    }
 
     void Read() {
         if (readThisFrame) {
@@ -291,6 +313,10 @@ struct Controls {
             board->inputs[0] = forced[0];
             board->inputs[1] = forced[1];
             board->system = forced[2];
+            if (forcedAutofire && features) {
+                board->inputs[0] = Autofire(board->inputs[0], board->frame, *features);
+                board->inputs[1] = Autofire(board->inputs[1], board->frame, *features);
+            }
             return;
         }
         SDL_PumpEvents();
@@ -363,6 +389,8 @@ int main(int argc, char **argv) {
     std::map<uint64_t, std::string> shots, windowShots; // (--window-shot: the window's own pixels, as scaled)
     std::map<uint64_t, std::string> ramDumps;           // (--dump-ram FRAME:file: main RAM as the board holds it, for finding a game's facts)
     std::string windowShotNow, pictureLog; // (--picture-log FILE: a line per frame, the frame and a hash of the picture shown)
+    std::string soundLog; // (--sound-log FILE: the sound as the board made it, each frame's, raw: checks)
+    std::string startState; // (--load-state FILE: the board as a headless runner's state, at the start)
     std::string inputLog; // (--input-log FILE: a line per frame, the board's frame and the controls the game was given: checks)
     struct Held {
         uint64_t from, count;
@@ -423,6 +451,10 @@ int main(int argc, char **argv) {
             ramDumps[strtoull(v.substr(0, v.find(':')).c_str(), nullptr, 0)] = v.substr(v.find(':') + 1);
         } else if (a == "--picture-log" && i + 1 < argc) {
             pictureLog = argv[++i];
+        } else if (a == "--sound-log" && i + 1 < argc) {
+            soundLog = argv[++i];
+        } else if (a == "--load-state" && i + 1 < argc) {
+            startState = argv[++i]; // (checks, profiling: the board from a state the headless runner saved, --save-state)
         } else if (a == "--input-log" && i + 1 < argc) {
             inputLog = argv[++i];
         } else if (a == "--window-shot" && i + 1 < argc) {
@@ -1208,6 +1240,34 @@ int main(int argc, char **argv) {
         }
     };
 
+    // ---- Run-ahead's frames kept (run-ahead 1 or 2, offline): the frames ahead are run as the game's own would be
+    // (the sound chips running, the controls as held when they are run, their sound kept aside), each kept before it
+    // is run (hw.NetKeep, in places 0 and 1 by turns), and the board left at the last. At the next frame, if the
+    // controls are as the first of them was given and nothing else has a claim on the board, that frame is the game's
+    // next and is taken as it is, with its sound; then only one frame more is run for the picture ahead: one frame run
+    // for each shown, where run-ahead's frames were all run again each time. Otherwise the board is put back to the
+    // game's own frame and run on as ever. The frames, the picture and the sound are the same either way
+    // (SPELUNK_NO_AHEAD_KEEP=1: never kept). Online play has its own rollback, and run-ahead is off there
+    struct AheadKept {
+        struct Frame {
+            int place;          // (the board as it was before this frame: hw.NetKeep's place)
+            uint32_t held[3];   // (the controls it was given, as held)
+            bool late;          // (it had no new picture: the speed readout's)
+            std::vector<int16_t> sound;
+        };
+        std::deque<Frame> frames; // (the frames run ahead of the game's own, oldest first; the board after the last)
+        bool taken = false;       // (the first was taken as the game's next frame: the frame part runs none)
+        Frame took;               // (... that one)
+        uint64_t kept = 0, again = 0;
+    } aheadKept;
+    // (the frames ahead let go, the board being made anew or given another state: nothing put back)
+    auto aheadForget = [&]() {
+        for (const AheadKept::Frame &f : aheadKept.frames) {
+            hw.NetDrop(f.place);
+        }
+        aheadKept.frames.clear();
+        aheadKept.taken = false;
+    };
     // ---- Save states ----
     auto statePath = [&](int slot) { return (savesFolder.empty() ? std::string(".") : savesFolder) + "/state" + std::to_string(slot) + ".bin"; };
     const std::string stateHeader = Hw::kStateHeader + gameId;
@@ -1230,6 +1290,7 @@ int main(int argc, char **argv) {
         return wrote && std::rename(temp.c_str(), path.c_str()) == 0;
     };
     auto loadState = [&](int slot) {
+        aheadForget(); // (frames run ahead are not the state's)
         std::vector<uint8_t> data;
         if (!ReadWholeFile(statePath(slot), data)) {
             return false;
@@ -1863,7 +1924,24 @@ int main(int argc, char **argv) {
     const size_t bootAt = FeatureIndex("boot");
     auto skipBoot = [&]() { return titleFrame > 0 && bootAt < features.size() && features[bootAt] == 0; };
     bool booting = skipBoot();
+    if (!startState.empty()) {
+        std::vector<uint8_t> data;
+        if (!ReadWholeFile(startState, data)) {
+            fprintf(stderr, "cannot read %s\n", startState.c_str());
+            return 1;
+        }
+        Archive ar(data, false);
+        board->Serialize(ar);
+        if (!ar.Ok()) {
+            fprintf(stderr, "%s is not a state of this game and build\n", startState.c_str());
+            return 1;
+        }
+        hw.AfterLoad();
+        hw.ToolsLost();
+        booting = false;
+    }
     auto resetBoard = [&]() {
+        aheadForget(); // (frames run ahead are not the new board's)
         std::string why;
         auto fresh = std::make_unique<Board>();
         if (LoadSet(romFolder, config, *fresh, why)) {
@@ -2275,8 +2353,48 @@ int main(int argc, char **argv) {
         }
         return true;
     };
+    const bool aheadKeep = !getenv("SPELUNK_NO_AHEAD_KEEP");
+    // (the scripted controls, --press and --system, as they are at frame `f`: checks)
+    auto scriptAt = [&](uint64_t f) {
+        controls.scripted[0] = controls.scripted[1] = controls.scriptedSystem = 0;
+        for (const Held &h : held) {
+            if (f >= h.from && f < h.from + h.count) {
+                (h.player < 0 ? controls.scriptedSystem : controls.scripted[h.player]) |= h.bits;
+            }
+        }
+    };
+    // (whether the board may run on kept: run-ahead 1 and nothing else wanting the game's own frames, or the board)
+    auto aheadKeepable = [&]() {
+        const bool toolsOn = features[FeatureIndex(ToolkitFeature::PracticePoint)] || features[FeatureIndex(ToolkitFeature::Rewind)] ||
+                             features[FeatureIndex(ToolkitFeature::FastForward)];
+        return aheadKeep && (features[FeatureIndex(ToolkitFeature::RunAhead)] == 1 || features[FeatureIndex(ToolkitFeature::RunAhead)] == 2) && !checkVideo && !paused && !menu.IsOpen() &&
+               speed == recomp::layout::kFull && !toolsOn && !lagOn() && !rollbackTest && !replaying && !net && !waitingHost &&
+               !attract && !booting && !(ThisGame().unseen && ThisGame().unseen(*board, features) >= 0);
+    };
     while (running) {
         const uint64_t workFrom = SDL_GetTicksNS();
+        // (run-ahead's kept frame: taken as the game's next, or the board put back, before anything else of the loop
+        // can touch the board)
+        if (!aheadKept.frames.empty()) {
+            scriptAt(frameCount);
+            uint32_t now[3] = {};
+            const bool quiet = controls.Sample(now);
+            AheadKept::Frame &first = aheadKept.frames.front();
+            if (quiet && aheadKeepable() && std::equal(now, now + 3, first.held)) {
+                hw.NetDrop(first.place); // (the game's own frame is now the one after it)
+                aheadKept.took = std::move(first);
+                aheadKept.frames.pop_front();
+                aheadKept.taken = true;
+                aheadKept.kept++;
+            } else {
+                hw.NetBack(first.place); // (the game's own frame, as it was before the first frame ahead)
+                for (const AheadKept::Frame &f : aheadKept.frames) {
+                    hw.NetDrop(f.place);
+                }
+                aheadKept.frames.clear();
+                aheadKept.again++;
+            }
+        }
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
             if (net && e.type != SDL_EVENT_QUIT && e.type != SDL_EVENT_GAMEPAD_ADDED && e.type != SDL_EVENT_GAMEPAD_REMOVED) {
@@ -2779,7 +2897,13 @@ int main(int argc, char **argv) {
             }
         }
         bool lateFrame = false;
-        if (netOn) {
+        const bool frameTaken = aheadKept.taken && !netOn;
+        if (frameTaken) {
+            // (the frame ahead, run last time, is this one: its sound now)
+            aheadKept.taken = false;
+            lateFrame = aheadKept.took.late;
+            hw.Sound().insert(hw.Sound().end(), aheadKept.took.sound.begin(), aheadKept.took.sound.end());
+        } else if (netOn) {
             net->Frame(netGame, netControls()); // (online: rollback first if a guess was wrong, then the frame: netGame.step)
             lateFrame = netLate;
         } else {
@@ -2826,10 +2950,10 @@ int main(int argc, char **argv) {
             attempt.push_back({{board->inputs[0], board->inputs[1], board->system}});
         }
         hw.CheckFrame(frameCount);
-        if (!netOn && !controls.readThisFrame) {
+        if (!netOn && !frameTaken && !controls.readThisFrame) {
             controls.Read(); // (a frame in which the game read nothing: the switches still follow the host)
         }
-        if (!netOn && ThisGame().afterFrame) {
+        if (!netOn && !frameTaken && ThisGame().afterFrame) {
             ThisGame().afterFrame(*board, features);
         }
         } // (not rewinding)
@@ -2884,7 +3008,45 @@ int main(int argc, char **argv) {
                               ? 0
                               : features[FeatureIndex(ToolkitFeature::RunAhead)];
         const bool wantPixels = (!useGpu && !shading) || pictures || shots.count(frameCount);
-        if (ahead > 0) {
+        uint32_t aheadHeld[3] = {};
+        const bool keepAhead = (ahead == 1 || ahead == 2) && !netOn && controls.Sample(aheadHeld) && aheadKeepable() &&
+                               static_cast<int>(aheadKept.frames.size()) <= ahead;
+        if (!keepAhead && !aheadKept.frames.empty()) {
+            // (run-ahead 2's second frame still ahead, and now not to be kept: the board back to the game's own)
+            hw.NetBack(aheadKept.frames.front().place);
+            aheadForget();
+        }
+        if (keepAhead) {
+            // (the frames ahead run as the game's own, each kept before it is run, and the board left at the last:
+            // aheadKept. Those still ahead from the last frame are kept as they are: their controls are these)
+            while (static_cast<int>(aheadKept.frames.size()) < ahead) {
+                AheadKept::Frame f;
+                f.place = aheadKept.frames.empty() ? 0 : 1 - aheadKept.frames.back().place;
+                std::copy(aheadHeld, aheadHeld + 3, f.held);
+                hw.NetKeep(f.place);
+                controls.forced = aheadHeld;
+                controls.forcedAutofire = true;
+                controls.readThisFrame = false;
+                if (ThisGame().beforeFrame) {
+                    ThisGame().beforeFrame(*board, features);
+                }
+                const size_t soundBefore = hw.Sound().size();
+                hw.BeforeFrame();
+                board->RunFrame();
+                f.late = hw.AfterFrame(false);
+                if (!controls.readThisFrame) {
+                    controls.Read();
+                }
+                if (ThisGame().afterFrame) {
+                    ThisGame().afterFrame(*board, features);
+                }
+                controls.forced = nullptr;
+                controls.forcedAutofire = false;
+                f.sound.assign(hw.Sound().begin() + static_cast<std::ptrdiff_t>(soundBefore), hw.Sound().end());
+                hw.Sound().resize(soundBefore);
+                aheadKept.frames.push_back(std::move(f));
+            }
+        } else if (ahead > 0) {
             hw.BeginAhead();
             for (int i = 0; i < ahead; i++) {
                 if (ThisGame().beforeFrame) {
@@ -3015,7 +3177,7 @@ int main(int argc, char **argv) {
                 lag.presses++;
             }
         }
-        if (ahead > 0) {
+        if (ahead > 0 && aheadKept.frames.empty()) {
             hw.EndAhead();
         }
         // (a moment of the timeline is kept once the frame is on show, so keeping it never holds the picture up)
@@ -3054,6 +3216,13 @@ int main(int argc, char **argv) {
             audioSteady = paused ? 0 : audioSteady + 1;
         } else {
             audioSteady = 0;
+        }
+        if (!soundLog.empty()) {
+            static FILE *soundFile = fopen(soundLog.c_str(), "wb");
+            if (soundFile && !hw.Sound().empty()) {
+                fwrite(hw.Sound().data(), 2, hw.Sound().size(), soundFile);
+                fflush(soundFile);
+            }
         }
         if (audioLog && audioSeen.frames >= 60) {
             fprintf(stderr, "audio: frame %llu, waiting %.1f ms (least %.1f, most %.1f), %d left out, %d ran dry\n",
@@ -3160,6 +3329,14 @@ int main(int argc, char **argv) {
             static_cast<unsigned long long>(board->cpu.shadowEvents), static_cast<unsigned long long>(board->cpu.shadowSkips),
             static_cast<unsigned long long>(board->cpu.shadowSkipTurns));
 #endif
+    if (!aheadKept.frames.empty()) {
+        hw.NetBack(aheadKept.frames.front().place); // (the game's own frame, for what is said and kept at the end)
+        aheadForget();
+    }
+    if (aheadKept.kept + aheadKept.again) {
+        printf("run-ahead: %llu frames kept, %llu run again\n", static_cast<unsigned long long>(aheadKept.kept),
+               static_cast<unsigned long long>(aheadKept.again));
+    }
     const int result = hw.Report();
     if (getenv("SPELUNK_REPORT_INPUT")) {
         fprintf(stderr, "input: %llu reads in %llu frames\n", static_cast<unsigned long long>(controls.reads), static_cast<unsigned long long>(frameCount));
