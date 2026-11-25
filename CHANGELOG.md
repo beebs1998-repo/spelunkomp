@@ -5,6 +5,14 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **The menu turns with the picture** (#43). With a vertical game shown As the cabinet, for a monitor turned on its
+  side, the in-game menu, the notes (SCREENSHOT SAVED, STOPPED, the online notes) and the readouts (input display,
+  speed, FPS, input lag, the scoring readouts) were still drawn for an ordinary monitor and read sideways. A new
+  **Menu orientation** setting on the Display page (the launcher's and the menu's) turns them with the picture: Auto,
+  the default, follows the picture; Upright is as before; Top to the right, Upside down and Top to the left turn them
+  for a monitor turned some other way. The menu is laid out for the turned screen's shape, up on the stick is up the
+  list as you see it, and the mouse and touch find the row under them. The hit boxes stay on the picture. The game
+  and its picture are the same frame for frame.
 - **Rewind works on the PGM games** (#48). Holding rewind in Dai-Ou-Jou Black Label, Ketsui, Espgaluda or DoDonPachi
   II only paused the game or went back a few frames: the board's saved state changes size with the number of sprites
   on screen, and each change threw rewind's history away. Rewind now keeps a state of any size. Save states are

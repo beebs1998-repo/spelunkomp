@@ -3,6 +3,8 @@
 // The toolkit's own features, after the game's and before the game program's (game.h)
 #include "game.h"
 
+#include "../recomp-common/menu_turn.h"
+
 namespace spelunk {
 
 namespace {
@@ -13,6 +15,9 @@ namespace {
              "screen. As the cabinet: the picture as the board sends it, for a screen you have turned on its side (its top to "
              "the left, or to the right).",
              0, {"Stood up", "As the cabinet (top to the left)", "As the cabinet (top to the right)"}},
+            // (the menu, the tools' notes and the readouts turned with the picture for a monitor on its side:
+            // recomp-common/menu_turn.h; port/main.cpp's menuTurnNow, port/hud.h)
+            {"menu_orientation", "Display", recomp::turn::kTitle, recomp::turn::kDescription, 0, recomp::turn::Choices()},
             {"scaling", "Display", "Scaling",
              "How large the board's picture is shown. Whole pixels: the largest whole multiple of the board's 320 x 240 that "
              "fits the window, every pixel the same size and sharp, with a border. A fixed multiple: that size exactly (the "
