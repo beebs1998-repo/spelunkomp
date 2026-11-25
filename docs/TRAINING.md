@@ -49,8 +49,9 @@ The sound chip's state is part of a moment, so the music is where it was.
 
 For each game, with the GPU renderer: the tools on and never used leave the game's state and all of VRAM as a run
 without them; a practice point set and gone back to 300 frames later, then played on, ends in the same state, the
-same VRAM and the same picture as a run that simply played that many frames; the same for a rewind of 60 held
-frames; and for both together with run-ahead on. All five games pass.
+same VRAM and the same picture as a run that simply played that many frames; the same for rewind held 300 frames
+(5 s), which must also have gone back at least 888 frames of play; and for both together with run-ahead on. All five
+games pass.
 
 ### Slow motion and frame advance, checked
 
