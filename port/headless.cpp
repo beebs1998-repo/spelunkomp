@@ -488,9 +488,14 @@ int main(int argc, char **argv) {
     if (!recordPath.empty()) {
         board->cpu.SaveRecording(recordPath.c_str());
     }
+    if (board->cpu.pollSkips) {
+        fprintf(stderr, "poll loops: %llu turns worked out in %llu skips\n", static_cast<unsigned long long>(board->cpu.pollTurnsSkipped),
+                static_cast<unsigned long long>(board->cpu.pollSkips));
+    }
 #ifdef SPELUNK_SHADOW_TIMING
-    fprintf(stderr, "shadow: %llu events compared with the reference model, all the same\n",
-            static_cast<unsigned long long>(board->cpu.shadowEvents));
+    fprintf(stderr, "shadow: %llu events compared with the reference model, all the same; %llu poll-loop skips (%llu turns) the same as the turns run\n",
+            static_cast<unsigned long long>(board->cpu.shadowEvents), static_cast<unsigned long long>(board->cpu.shadowSkips),
+            static_cast<unsigned long long>(board->cpu.shadowSkipTurns));
 #endif
     if (const char *path = getenv("SPELUNK_INTERPRETED")) {
         board->cpu.SaveInterpreted(path);

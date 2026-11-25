@@ -48,7 +48,8 @@ both() {
         line=$(cmp "$LOGS/$NAME.shadow.txt" "$LOGS/$NAME.ref.txt" 2>&1 | sed -n 's/.*line \([0-9]*\).*/\1/p')
         echo "$SET $NAME $ran FAIL the hash logs differ from frame $(sed -n "${line:-1}p" "$LOGS/$NAME.shadow.txt" | cut -d' ' -f1)" > "$RESULT"
     else
-        echo "$SET $NAME $ran pass -" > "$RESULT"
+        skips=$(sed -n 's/.*; \([0-9]*\) poll-loop skips (\([0-9]*\) turns).*/\1 poll-loop skips, \2 turns/p' "$LOGS/$NAME.shadow.out")
+        echo "$SET $NAME $ran pass ${skips:--}" > "$RESULT"
         # (a run that passed keeps its word, not its logs: they are large)
         rm -f "$LOGS/$NAME.shadow.txt" "$LOGS/$NAME.ref.txt"
     fi

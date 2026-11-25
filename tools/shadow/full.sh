@@ -43,6 +43,7 @@ echo "against $REF; $JOBS at a time; out: $OUT"
 # ---- The builds: each set's shadow build of this tree, and its build of REF (a worktree of it, made here) ----
 REFSRC=$OUT/ref-src
 if [ ! -d "$REFSRC" ]; then
+    git -C "$ROOT" worktree prune # (one deleted with OUT)
     git -C "$ROOT" worktree add --detach "$REFSRC" "$REF" > /dev/null 2>&1 || { echo "error: cannot check out $REF into $REFSRC"; exit 2; }
 fi
 git -C "$REFSRC" checkout --detach -q "$REF" || { echo "error: $REF"; exit 2; }
@@ -55,6 +56,14 @@ build() { # SOURCE DIR TARGETS... (the rest: CMake's arguments after --)
     nice -n "$NICE" cmake -S "$src" -B "$dir" -G Ninja -DCMAKE_BUILD_TYPE=Release -DWORK_DIR="$WORK_DIR" "$@" > "$dir.cmake.log" 2>&1 &&
         nice -n "$NICE" cmake --build "$dir" --target $targets > "$dir.build.log" 2>&1
 }
+for set in $SETS; do
+    if [ -f "$ROMS/$set.zip" ] && ! ls "$WORK_DIR/$set/gen/"*.cpp > /dev/null 2>&1; then
+        # (without its translations a set's program runs the board's interpreters only: the native runs would check
+        # nothing of the translated code)
+        echo "error: no translations for $set in $WORK_DIR/$set/gen (tools/translate.sh, or WORK_DIR= a folder that has them)"
+        exit 2
+    fi
+done
 for set in $SETS; do
     if [ ! -x "$OUT/bin/$set-shadow" ] || [ ! -x "$OUT/bin/$set-ref" ] || { [ "$TIER" = full ] && [ ! -x "$OUT/bin/$set-game" ]; }; then
         echo "building $set"

@@ -140,6 +140,7 @@ SH3::SH3() {
     (void)g_built;
     Sh3Timing::opCycles = s_cycles;
     SHADOW_TIMING_ALSO(ref::Sh3Timing::opCycles = s_cycles);
+    pollSkip = getenv("SPELUNK_NO_POLL_SKIP") == nullptr;
     if (const char *w = getenv("SPELUNK_WATCH")) {
         sscanf(w, "%x-%x", &watchLo, &watchHi);
         watching = watchHi != 0;
@@ -259,6 +260,7 @@ void SH3::TakeInterrupt() {
     cycles += 5;
     if (timing) {
         memoryTiming.Redirect(PC, cycles);
+        PollForget();
 #ifdef SPELUNK_SHADOW_TIMING
         refTiming.Redirect(PC, cycles);
         ShadowCheckWhole("interrupt");
@@ -351,6 +353,226 @@ void SH3::Run(uint64 until) {
         eventAt = ~0ull;
         bus->Event();
     }
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// The poll loop's fast-forward (sh3.h's PollLoop)
+
+namespace {
+    // The model's fields of a time: each either the same at the end of every turn, and past (it is not read), or later
+    // by the turn's cycles. The rest must stay the same
+    constexpr int kPollTimes = 6;
+    uint64 &PollTime(Sh3Timing &m, int i) {
+        switch (i) {
+        case 0: return m.sdramFree;
+        case 1: return m.postedDone;
+        case 2: return m.otherFree;
+        case 3: return m.lastTime;
+        case 4: return m.nextDecode;
+        default: return m.mmEnd;
+        }
+    }
+    bool PollSame(const Sh3Timing &a, const Sh3Timing &b) {
+        return a.bcr2 == b.bcr2 && a.wcr1 == b.wcr1 && a.wcr2 == b.wcr2 && a.mcr == b.mcr && a.ccr == b.ccr && a.lastInsn == b.lastInsn &&
+               a.from == b.from && a.lastFetchLine == b.lastFetchLine && a.lastLoad == b.lastLoad && a.nextLoad == b.nextLoad &&
+               a.inSlot == b.inSlot && a.own == b.own && a.portMask == b.portMask && std::memcmp(a.ways, b.ways, sizeof a.ways) == 0 &&
+               std::memcmp(a.order, b.order, sizeof a.order) == 0;
+    }
+    bool IsTcnt(uint32 a) {
+        return a == 0xFFFFFE98u || a == 0xFFFFFEA4u || a == 0xFFFFFEB0u;
+    }
+    // (what the loop may read: a timer's count, worked out for each turn's read, or a word of main RAM, which nothing
+    // writes while the loop turns: the CPU writes nothing in it, an interrupt or the board's event ends it first)
+    bool PollReadable(uint32 a) {
+        return IsTcnt(a) || (SH3::IsRam(a) && (a & 3) == 0);
+    }
+} // namespace
+
+void SH3::PollTurn(uint32 target) {
+    if (mode != Mode::Native || !pollSkip || pollInside || !timing) {
+        return;
+    }
+    const uint64 now = cycles;
+    if (poll.head != target) {
+        // (a branch back two instructions: is this the loop?)
+        PollForget();
+        const uint16 op0 = TimingCode(target), op1 = TimingCode(target + 2), op2 = TimingCode(target + 4), op3 = TimingCode(target + 6);
+        if ((op0 & 0xF00F) != 0x3008 || (op1 & 0xF00F) != 0x3006 || op2 != 0x8DFC || (op3 & 0xF00F) != 0x6002) {
+            return;
+        }
+        poll.n0 = (op0 >> 8) & 15;
+        poll.m0 = (op0 >> 4) & 15;
+        poll.n1 = (op1 >> 8) & 15;
+        poll.m1 = (op1 >> 4) & 15;
+        poll.n3 = (op3 >> 8) & 15;
+        poll.m3 = (op3 >> 4) & 15;
+        if (poll.m3 == poll.n0 || poll.m3 == poll.n3 || poll.n3 != poll.n0 || !PollReadable(R[poll.m3])) {
+            return;
+        }
+        poll.head = target;
+        poll.slot = target + 6;
+        poll.end = now;
+        poll.before = memoryTiming;
+        poll.turns = 0;
+        return;
+    }
+    // (a turn: it began where the last ended, and its read was made within it)
+    if (poll.read <= poll.end || poll.read > now || !PollReadable(R[poll.m3])) {
+        poll.end = now;
+        poll.before = memoryTiming;
+        poll.turns = 0;
+        return;
+    }
+    const uint64 cost = now - poll.end, readAt = poll.read - poll.end;
+    uint32 moved = 0;
+    bool steady = PollSame(memoryTiming, poll.before) && (memoryTiming.portBase == poll.before.portBase + cost ||
+                                                          (memoryTiming.portBase == poll.before.portBase && memoryTiming.portBase + 64 <= poll.end));
+    for (int i = 0; i < kPollTimes && steady; i++) {
+        const uint64 was = PollTime(poll.before, i), is = PollTime(memoryTiming, i);
+        if (is == was + cost) {
+            moved |= 1u << i;
+        } else if (!(is == was && is <= poll.end)) {
+            steady = false;
+        }
+    }
+    if (memoryTiming.portBase != poll.before.portBase) {
+        moved |= 1u << kPollTimes;
+    }
+    const bool same = steady && poll.turns > 0 && cost == poll.cost && readAt == poll.readAt && moved == poll.moved;
+    poll.turns = steady ? poll.turns + 1 : 0;
+    poll.cost = cost;
+    poll.readAt = readAt;
+    poll.moved = moved;
+    poll.end = now;
+    poll.before = memoryTiming;
+    if (!same) {
+        return;
+    }
+
+    // Two turns alike: the turns after them worked out, each as the last, while the loop goes on and the block would
+    // run another (the translated block's own test: under its stop, no interrupt ready)
+#ifdef SPELUNK_SHADOW_TIMING
+    const std::array<uint32, 16> keepR = R;
+    const uint32 keepT = T, keepPC = PC;
+    const uint64 keepCycles = cycles;
+    Timer keepTmu[3];
+    std::memcpy(keepTmu, tmu, sizeof tmu);
+    const Sh3Timing keepModel = memoryTiming;
+#endif
+    uint64 turns = 0, lastRead = 0;
+    while (cycles < blockStop && !interruptReady) {
+        const uint32 r0 = R[poll.n0] - R[poll.m0];
+        const uint32 rn = poll.n1 == poll.n0 ? r0 : R[poll.n1], rm = poll.m1 == poll.n0 ? r0 : R[poll.m1];
+        if (!(rn > rm)) {
+            break; // (the loop ends this turn: the block runs it)
+        }
+        // (the word as it reads then: main RAM's, or TCNT with the timers brought up to that cycle on a copy, as
+        // ReadSlow would)
+        const uint64 readCycle = cycles + poll.readAt;
+        const uint32 address = R[poll.m3];
+        uint32 value;
+        if (IsRam(address)) {
+            std::memcpy(&value, ram + (address & (kRamSize - 4)), 4);
+            value = __builtin_bswap32(value);
+        } else {
+            Timer was[3];
+            std::memcpy(was, tmu, sizeof tmu);
+            const uint64 nowWas = cycles;
+            cycles = readCycle;
+            value = ReadSlow(address & ~3u, 4);
+            std::memcpy(tmu, was, sizeof tmu);
+            cycles = nowWas;
+        }
+        R[poll.n0] = r0;
+        R[poll.n3] = value;
+        T = 1;
+        cycles += poll.cost;
+        for (int i = 0; i < kPollTimes; i++) {
+            if (poll.moved & (1u << i)) {
+                PollTime(memoryTiming, i) += poll.cost;
+            }
+        }
+        if (poll.moved & (1u << kPollTimes)) {
+            memoryTiming.portBase += poll.cost;
+        }
+        lastRead = readCycle;
+        turns++;
+    }
+    if (!turns) {
+        return;
+    }
+    // (the timers as the last turn's read left them)
+    if (!IsRam(R[poll.m3])) {
+        const uint64 endCycles = cycles;
+        cycles = lastRead;
+        SyncTimers();
+        cycles = endCycles;
+    }
+    at = poll.slot;
+    inSlot = false;
+    pollSkips++;
+    pollTurnsSkipped += turns;
+    poll.end = cycles;
+    poll.before = memoryTiming;
+#ifdef SPELUNK_SHADOW_TIMING
+    // The same turns the slow way, from where they began (the interpreter, turn by turn, both models at every event),
+    // and the two compared: the skip's state must be the turns' to the last field. The run goes on from the slow way's
+    const std::array<uint32, 16> fastR = R;
+    const uint32 fastT = T;
+    const uint64 fastCycles = cycles;
+    Timer fastTmu[3];
+    std::memcpy(fastTmu, tmu, sizeof tmu);
+    const Sh3Timing fastModel = memoryTiming;
+    R = keepR;
+    T = keepT;
+    cycles = keepCycles;
+    std::memcpy(tmu, keepTmu, sizeof tmu);
+    memoryTiming = keepModel;
+    pollInside = true;
+    for (uint64 i = 0; i < turns; i++) {
+        PC = poll.head;
+        InterpretBlock();
+    }
+    pollInside = false;
+    std::string diff;
+    char line[200];
+    for (int r = 0; r < 16; r++) {
+        if (R[r] != fastR[r]) {
+            snprintf(line, sizeof line, "  R%d: skipped %08X, run %08X\n", r, fastR[r], R[r]);
+            diff += line;
+        }
+    }
+    if (T != fastT || cycles != fastCycles || PC != poll.head) {
+        snprintf(line, sizeof line, "  T %u / %u, cycles %llu / %llu, pc %08X\n", fastT, T, static_cast<unsigned long long>(fastCycles),
+                 static_cast<unsigned long long>(cycles), PC);
+        diff += line;
+    }
+    if (std::memcmp(tmu, fastTmu, sizeof tmu) != 0) {
+        diff += "  the timers differ\n";
+    }
+    if (!PollSame(memoryTiming, fastModel) || memoryTiming.portBase != fastModel.portBase) {
+        diff += "  the model's fields differ\n";
+    }
+    for (int i = 0; i < kPollTimes; i++) {
+        if (PollTime(memoryTiming, i) != PollTime(const_cast<Sh3Timing &>(fastModel), i)) {
+            snprintf(line, sizeof line, "  the model's time %d: skipped %llu, run %llu\n", i,
+                     static_cast<unsigned long long>(PollTime(const_cast<Sh3Timing &>(fastModel), i)),
+                     static_cast<unsigned long long>(PollTime(memoryTiming, i)));
+            diff += line;
+        }
+    }
+    shadowSkips++;
+    shadowSkipTurns += turns;
+    if (!diff.empty()) {
+        fprintf(stderr, "shadow: MISMATCH at a poll loop's skip of %llu turns at %08X, cycle %llu:\n%s", static_cast<unsigned long long>(turns),
+                poll.head, static_cast<unsigned long long>(keepCycles), diff.c_str());
+        fflush(stderr);
+        std::_Exit(3);
+    }
+    PC = keepPC;
+    poll.end = cycles;
+    poll.before = memoryTiming;
+#endif
 }
 
 // ---------------------------------------------------------------------------------------------------------
@@ -671,6 +893,7 @@ void SH3::Serialize(Archive &ar) {
     ar.Pod(memoryTiming);
     if (!ar.Saving()) {
         timingPaths.Forget(); // (found over the code that was in RAM)
+        PollForget();
         SHADOW_TIMING_ALSO(ShadowSync());
     }
     ar.Pod(MMUCR);
