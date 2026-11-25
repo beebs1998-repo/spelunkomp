@@ -581,6 +581,9 @@ int main(int argc, char **argv) {
     if ((getenv("SteamGameId") || getenv("SteamAppId")) && !getenv(SDL_HINT_JOYSTICK_HIDAPI_STEAMDECK)) {
         SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI_STEAMDECK, "0");
     }
+    if (const char *deck = SDL_GetHint(SDL_HINT_JOYSTICK_HIDAPI_STEAMDECK)) {
+        printf("input: SDL_JOYSTICK_HIDAPI_STEAMDECK=%s%s\n", deck, getenv(SDL_HINT_JOYSTICK_HIDAPI_STEAMDECK) ? " (set by hand)" : " (started by Steam)");
+    }
 #endif
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD | SDL_INIT_AUDIO)) {
         fprintf(stderr, "SDL: %s\n", SDL_GetError());
@@ -2204,6 +2207,11 @@ int main(int argc, char **argv) {
                 for (auto &p : controls.pads) {
                     if (!p) {
                         p = SDL_OpenGamepad(e.gdevice.which);
+                        if (p) {
+                            // (which pads the game has, in game.log: Steam Input's, or SDL's own driver's)
+                            const char *name = SDL_GetGamepadName(p);
+                            printf("gamepad: %s\n", name ? name : "(no name)");
+                        }
                         break;
                     }
                 }
