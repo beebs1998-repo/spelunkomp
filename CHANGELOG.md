@@ -5,6 +5,23 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+## 0.3.0-beta.1
+
+A much lighter CV1000 (slower machines now hold 60), touch controls that follow the finger on Android, 99 save slots,
+Spelunkomp's own online service, scoring readouts, a Renderer setting and the host's frame time, MAME's split sets,
+and fixes for the lag readout's stutter and the trip to a stage or boss.
+
+- **The CV1000 games run much lighter** (#18): the time the game spends waiting for its next frame is fast-forwarded
+  exactly instead of run instruction by instruction, cutting 46-70% of the board-timing work in every CV1000 game.
+  On a slower processor (an Apple M4's efficiency cores, about an Intel N150 or a Steam Deck) a busy frame went from
+  21-27 ms to 10-17 ms, inside the 16.7 ms a frame needs; on a fast one it saves about a quarter. Slowdown is
+  unchanged: every game was checked against the previous model on every frame and every skip, 193 runs over all 18
+  CV1000 sets.
+- **An FPS counter** (Display page, off by default): the frames this machine hands to the screen each second. Lower
+  than the board's rate means the machine isn't keeping up; the game's own slowdown is the Speed readout's.
+- **MAME's split and merged sets** (#29). A clone's split zip (`ddpdfk10.zip`, holding only the files that differ)
+  is read with its parent's beside it (`ddpdfk.zip`; Dai-Ou-Jou's `ddp3.zip`, Bee Storm's `pgm.zip`), and a merged
+  parent zip holding a clone's files is found for the clone. A split set missing its parent says which zip it needs.
 - **The in-game menu answers a finger** on Android, whether the touch controls are on or off: tap a row to choose
   it, slide up or down to move through the rows. With the touch controls turned off and no gamepad, there was no
   way back to them; now a tap on Touch controls turns them on again. The touch controls' own buttons still work
@@ -83,9 +100,6 @@ new CRT shader.
   often takes Guide on a Steam Deck), and in an online match they ask Leave the match?. Esc and F1 are unchanged.
 - **CRT Newpixie** on the Shader setting: RetroArch's newpixie-crt, a light CRT look with chromatic aberration,
   ghosting, a little curvature and scanlines.
-- **MAME's split and merged sets** (#29). A clone's split zip (`ddpdfk10.zip`, holding only the files that differ)
-  is read with its parent's beside it (`ddpdfk.zip`; Dai-Ou-Jou's `ddp3.zip`, Bee Storm's `pgm.zip`), and a merged
-  parent zip holding a clone's files is found for the clone. A split set missing its parent says which zip it needs.
 
 ## 0.1.0-beta.1
 
