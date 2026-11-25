@@ -245,4 +245,29 @@ void Ymz770::Serialize(Archive &ar) {
     }
 }
 
+void Ymz770::KeepDecoders(int which) {
+    for (int i = 0; i < 16; i++) {
+        m_keptHas[which][i] = m_decoders[i] != nullptr;
+        if (m_decoders[i]) {
+            if (m_keptDecoders[which][i]) {
+                *m_keptDecoders[which][i] = *m_decoders[i];
+            } else {
+                m_keptDecoders[which][i] = std::make_unique<AmmDecoder>(*m_decoders[i]);
+            }
+        }
+    }
+}
+
+void Ymz770::PutBackDecoders(int which) {
+    for (int i = 0; i < 16; i++) {
+        if (!m_keptHas[which][i]) {
+            m_decoders[i].reset();
+        } else if (m_decoders[i]) {
+            *m_decoders[i] = *m_keptDecoders[which][i];
+        } else {
+            m_decoders[i] = std::make_unique<AmmDecoder>(*m_keptDecoders[which][i]);
+        }
+    }
+}
+
 } // namespace spelunk

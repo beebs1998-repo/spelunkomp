@@ -5,6 +5,14 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **Run-ahead costs about one frame a frame** (run-ahead 1 and 2, offline). Its frames ahead were all run again at
+  every frame; now they are run as the game's own and kept, and taken as the game's next frames while the controls
+  stay as they were, so a frame shown costs one frame (and a kept moment) instead of two or three. On a Steam Deck in
+  SaiDaiOuJou's first boss with the slowdown on and the controls changing every few frames: run-ahead 1 from 24.1 ms
+  a frame to 13.6 (12.3 without run-ahead), run-ahead 2 from 35.0 to 13.6. The frames, the picture and the sound are
+  the same as before (docs/LAG.md). `SPELUNK_NO_AHEAD_KEEP=1` turns it off.
+- **Online rollback's sound is exact on the CV1000**: the sound decoders' history is kept with the rollback's moments,
+  so frames run again make the same sound as frames run once (it was a little off after each rollback).
 - **Which controller is which player** (recomp-common#99): the launcher's Controllers page gives each connected
   gamepad Automatic, Player 1, Player 2 or Not used (kept in settings.ini's `[controllers]`); the rest go to the
   players without one in the order they were connected, as before. A Steam Deck's own controls can be Not used, so

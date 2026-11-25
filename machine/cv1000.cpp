@@ -257,6 +257,7 @@ void Cv1000::KeepNow(bool exact, int which) {
     SerializeSmall(ar);
     if (exact) {
         sound.Serialize(ar);
+        sound.KeepDecoders(which);
     }
     m_keptExact[which] = exact;
     m_keptPathsClock[which] = cpu.timingPaths.clock;
@@ -291,6 +292,7 @@ void Cv1000::PutBack(int which, bool again) {
     cpu.timingPaths.PutBack(m_keptPathsClock[which], m_keptPathsGeneration[which]);
     if (m_keptExact[which]) {
         sound.Serialize(ar);
+        sound.PutBackDecoders(which);
     }
     blitter.Rollback(which);
     sound.held = false;
