@@ -9,8 +9,11 @@
 // outside the present (a GPU slower than the game) are in it too. In game.log a minute at a time (median, p95, the
 // most), and on the readout as the last second's mean when the Speed readout is "On, with the host's time". Only frames
 // run and shown are counted: not those run unseen (straight to the title, on the way to a stage), stopped or under the
-// menu.
+// menu. The line is made here and written by the log's thread (port/log_later.h): the game's frame does not wait on
+// game.log's disk.
 #pragma once
+
+#include "log_later.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -35,15 +38,16 @@ public:
         m_recentAt = (m_recentAt + 1) % kRecent;
         m_recentCount = std::min(m_recentCount + 1, kRecent);
         if (now - m_from >= 60000000000ull) {
-            Report(now);
+            Report(now, false);
         }
     }
     // The last second's mean (the last 60 frames counted), in ms; 0 before any
     double RecentMs() const {
         return m_recentCount ? m_recentSum / m_recentCount : 0;
     }
-    // What has been counted since the last line, into the output (game.log): at each minute, and at the end
-    void Report(uint64_t now) {
+    // What has been counted since the last line, into the output (game.log): at each minute, and at the end (`last`:
+    // written before this returns, ahead of what the end writes after it)
+    void Report(uint64_t now, bool last = true) {
         if (m_minute.empty()) {
             return;
         }
@@ -54,10 +58,15 @@ public:
             over += ms > m_frameMs;
         }
         std::sort(v.begin(), v.end());
-        printf("host: %zu frames in %.0f s: the port's time a frame %.1f ms median, %.1f p95, %.1f most (the board's frame: "
-               "%.1f ms; %zu over it)\n",
-               n, (now - m_from) / 1e9, v[n / 2], v[std::min(n - 1, n * 95 / 100)], v[n - 1], m_frameMs, over);
-        fflush(stdout);
+        char line[256];
+        snprintf(line, sizeof line,
+                 "host: %zu frames in %.0f s: the port's time a frame %.1f ms median, %.1f p95, %.1f most (the board's frame: "
+                 "%.1f ms; %zu over it)\n",
+                 n, (now - m_from) / 1e9, v[n / 2], v[std::min(n - 1, n * 95 / 100)], v[n - 1], m_frameMs, over);
+        LogLater(stdout, line);
+        if (last) {
+            LogFlush();
+        }
         v.clear();
     }
 
