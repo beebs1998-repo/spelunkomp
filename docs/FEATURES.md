@@ -24,6 +24,7 @@ Each needs its own arcade ROM set, one version of it: the launcher's page for th
 | Game | Start | Straight to the title: the board's checks, warning and logos run unseen. Or the whole boot, as the board shows it |
 | Game | Slowdown as the board | On unless turned off: the board's CPU waiting on its memory worked out, so the game slows where a board does (CV1000: docs/SLOWDOWN.md; PGM: its waits). Off: busy scenes at full speed, for a slow device. Not yet compared with a board. Not on Cave's 68000 board, which has none to add |
 | Graphics | Screen | Stood up for an ordinary screen, or as the cabinet sends it, for a screen turned on its side (top to the left or right) |
+| Graphics | Menu orientation | Auto: the menu, the notes (SCREENSHOT SAVED, STOPPED) and the readouts turn with the picture, so As the cabinet on a monitor on its side they read upright there too. Upright: never turned, as before. Or turned to the right, upside down or to the left, for a monitor turned another way. The stick, the arrows, the mouse and a finger work the turned menu as it stands |
 | Graphics | Scaling | Whole pixels (the largest whole multiple that fits), a fixed multiple, or fill the window |
 | Graphics | Aspect | As the cabinet's 4:3 monitor, or square pixels |
 | Graphics | Shader | RetroArch's shaders through librashader: CRT, CRT Lottes, CRT Guest, CRT Royale, CRT Light, CRT Newpixie (a light CRT look with chromatic aberration, ghosting, a little curvature and scanlines), scanlines, xBRZ and more, or your own preset |

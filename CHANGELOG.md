@@ -5,6 +5,14 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **The menu turns with the picture** (#43). With a vertical game shown As the cabinet, for a monitor turned on its
+  side, the in-game menu, the notes (SCREENSHOT SAVED, STOPPED, the online notes) and the readouts (input display,
+  speed, FPS, input lag, the scoring readouts) were still drawn for an ordinary monitor and read sideways. A new
+  **Menu orientation** setting on the Display page (the launcher's and the menu's) turns them with the picture: Auto,
+  the default, follows the picture; Upright is as before; Top to the right, Upside down and Top to the left turn them
+  for a monitor turned some other way. The menu is laid out for the turned screen's shape, up on the stick is up the
+  list as you see it, and the mouse and touch find the row under them. The hit boxes stay on the picture. The game
+  and its picture are the same frame for frame.
 - **The test menu opens in Guwange.** F2 and the menu's Test menu command held the board's test switch for a moment
   only (the menu's, 10 frames), and Guwange looks for it held about half a second, so its test menu never opened. A
   press is now held a second at least. (On a Mac keyboard F2 is the brightness key unless fn is held: fn+F2, or the
