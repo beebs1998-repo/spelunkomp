@@ -316,7 +316,8 @@ void BeforeFrame(Board &board, const Facts &facts, const int *values) {
     }
     for (size_t i = 0; i < facts.fullGauges.size(); i++) {
         if (gaugesFull[i]) {
-            Write(board, facts.fullGauges[i].address, facts.fullGauges[i].full, facts.fullGauges[i].bytes);
+            const Facts::FullGauge &g = facts.fullGauges[i];
+            Write(board, g.address, g.fullNow ? g.fullNow(board) : g.full, g.bytes);
         }
     }
     if (endlessShips) {

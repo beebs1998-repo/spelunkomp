@@ -112,11 +112,14 @@ struct Facts {
     };
     std::vector<Gauge> gauges;
     // A gauge of the game's own kept full by a training feature of its own, after the ships' (Muchi Muchi Pork's lard
-    // meter, Espgaluda's gems): its name in settings.ini, title and description; the value it is held at (bytes: 1, 2, 4)
+    // meter, Espgaluda's and Espgaluda II's gems): its name in settings.ini, title and description; the value it is
+    // held at (bytes: 1, 2, 4), or, where the most it can be changes as the game is played (Akai Katana's energy: what
+    // the life leaves of the bar they share), fullNow: what it is now, read from the board as the game reads it
     struct FullGauge {
         std::string name, title, words;
         uint32_t address, full;
         int bytes = 2;
+        uint32_t (*fullNow)(const Board &board) = nullptr;
     };
     std::vector<FullGauge> fullGauges;
     // (a title of 22 characters at most: a longer one makes the menu's rows draw smaller on a picture stood up)

@@ -5,6 +5,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **Gems and energy kept full** (#55): two Training mode switches. Espgaluda II's "Gems kept full" holds the green
+  gems at 500, the most the game allows, so Kakusei lasts as long as you want. Akai Katana's "Energy kept full" holds
+  the energy gauge that Phantom form spends at the most the life bar leaves it. Akai Katana's Controllers page now
+  names its buttons 3 and 4 as the game uses them: button 3 is full auto and button 4 is Phantom.
 - **The menu turns with the picture** (#43). With a vertical game shown As the cabinet, for a monitor turned on its
   side, the in-game menu, the notes (SCREENSHOT SAVED, STOPPED, the online notes) and the readouts (input display,
   speed, FPS, input lag, the scoring readouts) were still drawn for an ordinary monitor and read sideways. A new

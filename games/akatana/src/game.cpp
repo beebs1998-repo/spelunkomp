@@ -104,6 +104,11 @@ namespace {
             Members(board, NS::kShipKindAll + player, [&](uint32_t m) { Box(board, m, HitBox::Ship, out); });
         }
     }
+    // The most the energy can be now: what the life's ceiling leaves of the bar (as the game's own 0x0C1F9470 holds it)
+    uint32_t EnergyFull(const Board &board) {
+        const uint32_t total = Long(board, NS::kBarTotal), life = Long(board, NS::kShips);
+        return total > life ? total - life : 0;
+    }
 } // namespace
 
 const Game &ThisGame() {
@@ -120,6 +125,10 @@ const Game &ThisGame() {
         f.shipsKept = 2 * akatana::kLifePerShip; // (two ships: one lost leaves one)
         f.bombs = akatana::kBombs;
         f.bombsMax = akatana::kBombsMax;
+        f.fullGauges.push_back({"energy_full", "Energy kept full",
+                                "The energy gauge (the green part of the bar) is kept at the most the life leaves it: Phantom "
+                                "form whenever you want it, for as long as you want it.",
+                                akatana::kEnergy, 0, 4, EnergyFull});
         f.hitBoxes = BoxesNow;
         f.hitKinds |= 1u << HitBox::Ground | 1u << HitBox::Shot;
         return shmup::MakeGame(akatana::kCredits, f);
