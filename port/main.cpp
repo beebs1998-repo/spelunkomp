@@ -263,8 +263,11 @@ struct Controls {
     SDL_Gamepad *pads[2] = {};
     port::TouchControls *touch = nullptr; // (a touch screen's: player 1's, beside the keys and the first gamepad)
     bool readThisFrame = false;
-    bool coinHeld = false;
+    bool coinHeld = false, testHeld = false;
     int coinFrames = 0, testFrames = 0;
+    // (a press of the test switch is held at least this long: Guwange looks for it held about half a second, so a tap of
+    // F2 or the menu's command, 10 frames, went unseen)
+    static constexpr int kTestPressFrames = 60;
     bool nineService = true; // (9 is the service switch too, unless a control has been given it)
     uint32_t scripted[2] = {0, 0}, scriptedSystem = 0; // (checks: --press and --system)
     uint64_t reads = 0;
@@ -308,7 +311,12 @@ struct Controls {
             coinFrames--;
             system |= kSysCoin1;
         }
-        if (keys[SDL_SCANCODE_F2] || testFrames > 0) {
+        const bool test = keys[SDL_SCANCODE_F2];
+        if (test && !testHeld) {
+            testFrames = kTestPressFrames;
+        }
+        testHeld = test;
+        if (test || testFrames > 0) {
             system |= kSysTest;
             testFrames -= testFrames > 0;
         }
@@ -1693,7 +1701,7 @@ int main(int argc, char **argv) {
             if (chosen.id == 1) {
                 controls.coinFrames = 4;
             } else if (chosen.id == 2) {
-                controls.testFrames = 10;
+                controls.testFrames = controls.kTestPressFrames;
             }
             menu.Close();
             break;
