@@ -15,6 +15,7 @@
 #endif
 
 #include "netplay.h"
+#include "log_later.h"
 
 #include "../recomp-common/launcher/src/online.h"
 #include "../recomp-common/launcher/src/run_program.h"
@@ -1369,14 +1370,20 @@ void Netplay::Report(bool last) {
         return;
     }
     lastReport = now;
-    fprintf(stderr, "online: frame %llu, ping %.0f ms, %llu rollbacks (%llu since the last report), %llu frames run again, at most %d at once; "
-                    "%llu anchors; %llu ticks waited; a frame at most %.1f ms, %llu over a frame's time; on average a shown frame %.2f ms, "
-                    "a frame run again %.2f ms (with the going back), the game kept %.2f ms\n",
-            static_cast<unsigned long long>(current), ping, static_cast<unsigned long long>(rollbacks),
-            static_cast<unsigned long long>(rollbacks - reportedRollbacks), static_cast<unsigned long long>(rerun), mostRerun,
-            static_cast<unsigned long long>(anchors), static_cast<unsigned long long>(waits), worst * 1000, static_cast<unsigned long long>(over),
-            current ? shownSeconds * 1000 / current : 0.0, rerun ? rerunSeconds * 1000 / rerun : 0.0,
-            frontAnchors ? anchorSeconds * 1000 / frontAnchors : 0.0);
+    // (made here, written by the log's thread: the frame does not wait on game.log, port/log_later.h)
+    char line[1024];
+    snprintf(line, sizeof line, "online: frame %llu, ping %.0f ms, %llu rollbacks (%llu since the last report), %llu frames run again, at most %d at once; "
+                                "%llu anchors; %llu ticks waited; a frame at most %.1f ms, %llu over a frame's time; on average a shown frame %.2f ms, "
+                                "a frame run again %.2f ms (with the going back), the game kept %.2f ms\n",
+             static_cast<unsigned long long>(current), ping, static_cast<unsigned long long>(rollbacks),
+             static_cast<unsigned long long>(rollbacks - reportedRollbacks), static_cast<unsigned long long>(rerun), mostRerun,
+             static_cast<unsigned long long>(anchors), static_cast<unsigned long long>(waits), worst * 1000, static_cast<unsigned long long>(over),
+             current ? shownSeconds * 1000 / current : 0.0, rerun ? rerunSeconds * 1000 / rerun : 0.0,
+             frontAnchors ? anchorSeconds * 1000 / frontAnchors : 0.0);
+    LogLater(stderr, line);
+    if (last) {
+        LogFlush();
+    }
     reportedRollbacks = rollbacks;
 }
 

@@ -186,6 +186,12 @@ else()
 endif()
 set_target_properties(game PROPERTIES OUTPUT_NAME ${GAME})
 target_link_libraries(game PRIVATE spelunk_game spelunk_machine spelunk_gen spelunk_game_config SDL3::SDL3)
+# (no translations: the program runs the game on the interpreters, and says so as it starts and to the launcher,
+# port/build_note.h. CI's builds are these; the app's and the releases' never are, unless asked: tools/check_gen.sh)
+if(NOT GEN_SOURCES)
+  target_compile_definitions(game PRIVATE SPELUNK_INTERPRETED_BUILD=1)
+  message(STATUS "${GAME}: interpreted build: no translated code in ${WORK_DIR}/${GAME}/gen")
+endif()
 if(ANDROID)
   # (the system's log; and the library's calls of its own functions kept inside it, not through the PLT: as
   # Soulcalibur II's Android build found, that is several per cent of a frame)

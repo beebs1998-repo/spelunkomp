@@ -104,11 +104,12 @@ build_programs() {
     [ "${NO_GAME_CODE:-}" != 1 ] || work="$empty"
     for game in $GAMES; do
         [ -f "$ROOT/games/$game/game.cfg" ] || { echo "error: no game $game (games/$game/game.cfg)" >&2; exit 1; }
-        if [ "${NO_GAME_CODE:-}" != 1 ] && ! ls "$work/$game/gen/"*.cpp >/dev/null 2>&1; then
-            echo "error: no translated code for $game in work/$game/gen: translate it from its ROM set first" >&2
-            echo "(tools/translate.sh, tools/translate68k.sh or tools/translatez80.sh: docs/BUILDING.md)" >&2
-            exit 1
-        fi
+    done
+    # (every game's translated code there before any is built: the games without it, and the commands that make it)
+    if [ "${NO_GAME_CODE:-}" != 1 ]; then
+        WORK="$work" OVERRIDE=NO_GAME_CODE=1 "$ROOT/tools/check_gen.sh" $GAMES || exit 1
+    fi
+    for game in $GAMES; do
         cmake -S "$ROOT" -B "$build/game-$game" -G Ninja -DCMAKE_BUILD_TYPE=Release -DGAME="$game" -DWORK_DIR="$work" \
             $CCACHE_ARGS "$@" >/dev/null
         targets=game

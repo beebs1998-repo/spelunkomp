@@ -5,6 +5,14 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **Rewind works on the PGM games** (#48). Holding rewind in Dai-Ou-Jou Black Label, Ketsui, Espgaluda or DoDonPachi
+  II only paused the game or went back a few frames: the board's saved state changes size with the number of sprites
+  on screen, and each change threw rewind's history away. Rewind now keeps a state of any size. Save states are
+  unchanged.
+- **`make app` needs every game's translation**: it and `make collection` stop, naming each game without one and
+  the command that makes it, instead of quietly building programs that run on the interpreters. `INTERPRETED=1` builds
+  them anyway, marked: the app is `Spelunkomp (interpreted).app`, and such a program logs `interpreted build: no
+  translated code` and has a note on its launcher row.
 - **Run-ahead on the CV1000 costs a little less** (#46). Run-ahead runs the whole board again for each frame it looks
   ahead, so each frame of it costs about as much as the game itself; with Slowdown as the board on, that is too much
   for run-ahead 2 on many machines. The game's put-back no longer forgets the slowdown model's worked-out paths nor
