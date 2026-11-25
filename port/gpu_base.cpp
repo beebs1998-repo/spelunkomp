@@ -355,9 +355,9 @@ void GpuBase::EndFrame(SDL_GPUCommandBuffer *cmd) {
 
 void GpuBase::SubmitWork(SDL_GPUCommandBuffer *cmd) {
     // (a present between two frames, the usual case, starts the count again, so this never waits then; run-ahead's
-    // frames and online rollback's frames run again, several to a present, wait at most for work from earlier in the
-    // same frame)
-    if (++m_workSincePresent % kFramesInFlight != 0) {
+    // frames are not counted (AheadWork); online rollback's frames run again, several to a present, wait at most for
+    // work from earlier in the same frame)
+    if (m_aheadWork || ++m_workSincePresent % kFramesInFlight != 0) {
         SDL_SubmitGPUCommandBuffer(cmd);
         return;
     }

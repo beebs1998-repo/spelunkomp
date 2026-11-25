@@ -13,6 +13,11 @@ Versions follow [Semantic Versioning](https://semver.org/).
   the command that makes it, instead of quietly building programs that run on the interpreters. `INTERPRETED=1` builds
   them anyway, marked: the app is `Spelunkomp (interpreted).app`, and such a program logs `interpreted build: no
   translated code` and has a note on its launcher row.
+- **Run-ahead on the CV1000 costs a little less** (#46). Run-ahead runs the whole board again for each frame it looks
+  ahead, so each frame of it costs about as much as the game itself; with Slowdown as the board on, that is too much
+  for run-ahead 2 on many machines. The game's put-back no longer forgets the slowdown model's worked-out paths nor
+  copies the 16 MB of main RAM back (SaiDaiOuJou), and run-ahead's frames no longer wait for the graphics chip from
+  the fourth on. The game and the picture are the same frame for frame.
 
 ## 0.3.0-beta.1
 

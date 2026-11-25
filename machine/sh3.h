@@ -438,6 +438,9 @@ public:
     // Run-ahead: while set, reading the state back leaves the translations' page marks alone (the board, which puts
     // RAM back itself, moves on only the pages whose code changed)
     bool keepEpochs = false;
+    // Run-ahead and rollback: while set, reading the state back keeps the timing model's paths (the board, which puts
+    // RAM back itself, then has those over the blocks written since forgotten: Sh3Paths::PutBack)
+    bool keepPaths = false;
     // Every register as text, one per line (checks: two runs compared by name)
     void Describe(FILE *out) const;
 

@@ -259,12 +259,14 @@ void Cv1000::KeepNow(bool exact, int which) {
         sound.Serialize(ar);
     }
     m_keptExact[which] = exact;
+    m_keptPathsClock[which] = cpu.timingPaths.clock;
+    m_keptPathsGeneration[which] = cpu.timingPaths.generation;
     blitter.BeginJournal(which);
     sound.held = !exact;
 }
 
-void Cv1000::PutBack(int which) {
-    const std::vector<uint8_t> &keptRam = m_keptRam[which];
+void Cv1000::PutBack(int which, bool again) {
+    std::vector<uint8_t> &keptRam = m_keptRam[which];
     const size_t ramSize = keptRam.size();
     // (a page of translated code that was written meanwhile is compared with its translations again)
     for (size_t page = 0; page < ramSize >> 12; page++) {
@@ -272,11 +274,21 @@ void Cv1000::PutBack(int which) {
             ++cpu.pageEpoch[page];
         }
     }
-    std::memcpy(ram.data(), keptRam.data(), ramSize);
+    if (again || keptRam.size() != ram.size()) {
+        std::memcpy(ram.data(), keptRam.data(), ramSize);
+    } else {
+        // (the two change places: what the frames run on wrote is overwritten by the next KeepNow)
+        ram.swap(keptRam);
+        cpu.ram = ram.data();
+        blitter.ram = ram.data();
+    }
     Archive ar(m_kept[which], false);
     cpu.keepEpochs = true;
+    cpu.keepPaths = true; // (the timing model's paths are the code's, not the state's: kept, but those over RAM written since)
     SerializeSmall(ar);
     cpu.keepEpochs = false;
+    cpu.keepPaths = false;
+    cpu.timingPaths.PutBack(m_keptPathsClock[which], m_keptPathsGeneration[which]);
     if (m_keptExact[which]) {
         sound.Serialize(ar);
     }

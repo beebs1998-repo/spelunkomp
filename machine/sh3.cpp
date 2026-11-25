@@ -892,7 +892,9 @@ void SH3::Serialize(Archive &ar) {
     ar.Pod(CCR);
     ar.Pod(memoryTiming);
     if (!ar.Saving()) {
-        timingPaths.Forget(); // (found over the code that was in RAM)
+        if (!keepPaths) {
+            timingPaths.Forget(); // (found over the code that was in RAM)
+        }
         PollForget();
         SHADOW_TIMING_ALSO(ShadowSync());
     }

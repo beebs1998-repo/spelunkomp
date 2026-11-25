@@ -73,8 +73,10 @@ public:
     // is allocated per frame. Exact (online play's rollback, port/netplay.h): the sound chip runs on meanwhile and is
     // kept and put back with the rest, so the frames run from the moment kept are the game's own.
     // Two moments can be kept at once (`which`: online play's anchor and the next one); Drop lets one go.
+    // `again`: the moment can be put back again later (online play); run-ahead's put back, which never is, takes the
+    // kept RAM itself as main RAM (no copy) and leaves the copy as it was for the next KeepNow to fill
     void KeepNow(bool exact = false, int which = 0);
-    void PutBack(int which = 0);
+    void PutBack(int which = 0, bool again = true);
     void Drop(int which);
     // The input lag readout's looks (port/main.cpp), run a frame at a time between the game's own: the board as it is
     // now set aside (SetAside: main RAM, the small state, and VRAM where the software blitter draws; the GPU's VRAM is
@@ -109,6 +111,7 @@ public:
 private:
     std::vector<uint8_t> m_kept[2], m_keptRam[2], m_traded;
     bool m_keptExact[2] = {};
+    uint32_t m_keptPathsClock[2] = {}, m_keptPathsGeneration[2] = {}; // (the timing model's paths as they were: PutBack)
     uint8_t m_soundRegister = 0;
     uint64_t m_blitterDone = 0; // the CPU cycle the blitter is ready again at
     bool m_pollSeen = false;    // (SPELUNK_BLIT_LOG only: not state)
