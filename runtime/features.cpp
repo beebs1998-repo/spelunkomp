@@ -4,6 +4,7 @@
 #include "game.h"
 
 #include "../recomp-common/menu_turn.h"
+#include "board_settings.h"
 
 namespace spelunk {
 
@@ -194,7 +195,12 @@ const std::vector<recomp::FeatureInfo> &AllFeatures() {
                                 (ThisGame().readoutsWhat ? ThisGame().readoutsWhat : "") + ".",
                             0, {}});
         }
+        // (the Board page's, from game.cfg, after the game's own; the Controls page's autofire after the toolkit's:
+        // runtime/board_settings.h)
+        const std::vector<recomp::FeatureInfo> board = BoardSettingFeatures(), autofire = AutofireFeatures();
+        list.insert(list.end(), board.begin(), board.end());
         list.insert(list.end(), ToolkitFeatures().begin(), ToolkitFeatures().end());
+        list.insert(list.end(), autofire.begin(), autofire.end());
         list.insert(list.end(), ProgramFeatures().begin(), ProgramFeatures().end());
         return list;
     }();
