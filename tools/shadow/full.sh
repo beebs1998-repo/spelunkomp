@@ -123,8 +123,12 @@ if [ "$TIER" = full ]; then
         status=$?
         if grep -q '^shadow: MISMATCH' "$log" || [ $status != 0 ]; then
             echo "$set rollback 6000 FAIL $(grep -m1 '^shadow: MISMATCH' "$log" | cut -c9-) (status $status)" > "$OUT/results/$set-rollback.txt"
+        elif ! grep -q '^shadow: .* all the same' "$log"; then
+            echo "$set rollback 6000 FAIL the shadow game program did not say it compared (not built with SHADOW_TIMING?)" > "$OUT/results/$set-rollback.txt"
         else
-            echo "$set rollback 6000 pass -" > "$OUT/results/$set-rollback.txt"
+            # (the game program's word at its end, as the headless runner's: port/main.cpp)
+            skips=$(sed -n 's/.*; \([0-9]*\) poll-loop skips (\([0-9]*\) turns).*/\1 poll-loop skips, \2 turns/p' "$log")
+            echo "$set rollback 6000 pass ${skips:--}" > "$OUT/results/$set-rollback.txt"
         fi
     done
 fi

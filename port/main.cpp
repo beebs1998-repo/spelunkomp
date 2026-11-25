@@ -2998,6 +2998,12 @@ int main(int argc, char **argv) {
         fclose(pictures);
     }
     hostTime.Report(SDL_GetTicksNS());
+#ifdef SPELUNK_SHADOW_TIMING
+    // (the shadow check's runs of the game program, as the headless runner says it: port/headless.cpp)
+    fprintf(stderr, "shadow: %llu events compared with the reference model, all the same; %llu poll-loop skips (%llu turns) the same as the turns run\n",
+            static_cast<unsigned long long>(board->cpu.shadowEvents), static_cast<unsigned long long>(board->cpu.shadowSkips),
+            static_cast<unsigned long long>(board->cpu.shadowSkipTurns));
+#endif
     const int result = hw.Report();
     if (getenv("SPELUNK_REPORT_INPUT")) {
         fprintf(stderr, "input: %llu reads in %llu frames\n", static_cast<unsigned long long>(controls.reads), static_cast<unsigned long long>(frameCount));
