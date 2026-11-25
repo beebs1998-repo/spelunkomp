@@ -13,6 +13,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
   for a monitor turned some other way. The menu is laid out for the turned screen's shape, up on the stick is up the
   list as you see it, and the mouse and touch find the row under them. The hit boxes stay on the picture. The game
   and its picture are the same frame for frame.
+- **The test menu opens in Guwange.** F2 and the menu's Test menu command held the board's test switch for a moment
+  only (the menu's, 10 frames), and Guwange looks for it held about half a second, so its test menu never opened. A
+  press is now held a second at least. (On a Mac keyboard F2 is the brightness key unless fn is held: fn+F2, or the
+  menu's command.)
 - **Rewind works on the PGM games** (#48). Holding rewind in Dai-Ou-Jou Black Label, Ketsui, Espgaluda or DoDonPachi
   II only paused the game or went back a few frames: the board's saved state changes size with the number of sprites
   on screen, and each change threw rewind's history away. Rewind now keeps a state of any size. Save states are
