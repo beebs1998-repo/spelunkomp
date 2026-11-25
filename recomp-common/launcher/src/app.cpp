@@ -748,6 +748,7 @@ App::App(SDL_Window* window)
         beside_wanted_ = beside_wanted_ || (one.about->game_page && one.about->find_beside);
     }
     find_shared();
+    give_shared();
     if (!collection_ && about_.game_page && (about_.open_on_game_page || about_.own_pages_after_game)) {
         page_ = place_of(Page::Game);
     }
@@ -1775,11 +1776,14 @@ std::vector<bool> App::hidden_choices(const Slot& one, size_t feature) {
 void App::load_features(Slot& one) {
     one.features.clear();
     one.features_error.clear();
+    one.program_note.clear();
     if (!one.has_program()) {
         one.features_error = "The game program wasn't found next to the launcher.";
         return;
     }
-    one.features = recomp::ParseFeatureList(GameProcess::output_of(one.program(), {"--list-features"}));
+    const std::string list = GameProcess::output_of(one.program(), {"--list-features"});
+    one.features = recomp::ParseFeatureList(list);
+    one.program_note = recomp::ParseFeatureListNote(list); // (a build with no translated code, say: settings.h)
     // (a file from before a feature was kept by name: made over once, settings.h)
     if (recomp::MigrateFeatures(one.settings, one.features)) {
         one.settings.save();
@@ -1811,6 +1815,46 @@ void App::find_shared() {
         }
     }
     shared_.erase(std::remove_if(shared_.begin(), shared_.end(), [](const Shared& s) { return s.where.size() < 2; }), shared_.end());
+}
+
+// A game new to the collection (a mod, or a game an update added) has none of the shared features' values the player
+// chose on the Features page, which wrote them only to the games there were then: its VSync, its shader and the rest
+// were its own defaults while the page showed the others'. Each shared feature it has no value of its own for takes
+// the one the games that have chosen it agree on. (A choice of its own, or games that differ, is left as it is.)
+void App::give_shared() {
+    // (all found before any is set: setting one makes the game's preset custom, which writes down its other values)
+    struct Gift {
+        size_t which, feature;
+        int value;
+    };
+    std::vector<Gift> gifts;
+    for (const Shared& shared : shared_) {
+        int agreed = -1;
+        bool differ = false;
+        std::vector<std::pair<size_t, size_t>> unchosen;
+        for (const auto& [which, feature] : shared.where) {
+            const Slot& one = *slots_[which];
+            if (!recomp::FeatureChosen(one.settings, one.features[feature])) {
+                unchosen.push_back({which, feature});
+                continue;
+            }
+            const int value = recomp::FeatureValues(one.settings, one.features)[feature];
+            differ = differ || (agreed >= 0 && value != agreed);
+            agreed = value;
+        }
+        if (agreed < 0 || differ) {
+            continue;
+        }
+        for (const auto& [which, feature] : unchosen) {
+            const Slot& one = *slots_[which];
+            if (recomp::FeatureValues(one.settings, one.features)[feature] != agreed) {
+                gifts.push_back({which, feature, agreed});
+            }
+        }
+    }
+    for (const Gift& gift : gifts) {
+        set_feature(*slots_[gift.which], gift.feature, gift.value);
+    }
 }
 
 void App::set_preset(const std::string& name) {
@@ -2678,6 +2722,10 @@ bool App::play_button(size_t which, float width) {
                !(collection_ && std::any_of(collection_->multi.begin(), collection_->multi.end(),
                                             [&](const launcher::MultiMode& m) { return m.next_code == one.game.exit_code(); }))) {
         stopped_note(one, width);
+    }
+    if (have_program && !one.program_note.empty()) {
+        ui::gap(10);
+        ui::text(one.program_note.c_str(), Font::Regular, ui::size::kDetail, p.danger, width);
     }
     return ready;
 }
@@ -3744,8 +3792,44 @@ void App::room_card(float width, const std::vector<size_t>& playable) {
             detail = std::string(Tr(launcher::kCountryFlags[country].name)) + (detail.empty() ? "" : " · " + detail);
         }
         const launcher::Online* online = which < slots_.size() ? &slots_[which]->about->online : nullptr;
+        // (a collection's: the games they have, those this player can play too first and marked, so as to know what to
+        // invite them to)
+        std::vector<ui::Piece> theirs;
+        size_t both = 0;
+        if (collection_ && !player.games.empty()) {
+            std::vector<ui::Piece> others;
+            for (const std::string& id : player.games) {
+                std::string name = id;
+                bool mine = false;
+                for (size_t slot = 0; slot < slots_.size(); slot++) {
+                    if (room_game(slot) == id) {
+                        name = slots_[slot]->name;
+                        mine = std::find(playable.begin(), playable.end(), slot) != playable.end();
+                        break;
+                    }
+                }
+                (mine ? theirs : others).push_back({name, mine});
+            }
+            both = theirs.size();
+            const auto by_name = [](const ui::Piece& a, const ui::Piece& b) { return a.text < b.text; };
+            std::sort(theirs.begin(), theirs.end(), by_name);
+            std::sort(others.begin(), others.end(), by_name);
+            theirs.insert(theirs.end(), others.begin(), others.end());
+        }
+        const auto their_games = [&](float text_width) {
+            if (theirs.empty()) {
+                return;
+            }
+            const ui::Palette& p = ui::palette();
+            ui::gap(6);
+            const std::string count = both == 0 ? TrFormat("Their games ({}): none you have too", {std::to_string(theirs.size())})
+                                                : TrFormat("Their games ({}), the {} you both have first:", {std::to_string(theirs.size()), std::to_string(both)});
+            ui::text(count.c_str(), ui::Font::Regular, ui::size::kDetail, p.secondary, text_width);
+            ui::gap(2);
+            ui::pieces(theirs, ", ", ui::size::kDetail, p.secondary, p.accent, text_width);
+        };
         ImGui::PushID(static_cast<int>(n));
-        row(width, player.name.c_str(), detail.c_str(), 284.0f, 36.0f, [&] {
+        layout::row_more(width, player.name.c_str(), detail.c_str(), 284.0f, 36.0f, [&] {
             // (their flag before the buttons: 30 points wide, then 14 of room; the space kept when they have none)
             const ImVec2 at = ImGui::GetCursorScreenPos();
             ImGui::SetCursorScreenPos(ImVec2(at.x, at.y + px(7)));
@@ -3758,7 +3842,7 @@ void App::room_card(float width, const std::vector<size_t>& playable) {
             if (ui::button("Block", Kind::Secondary, 100.0f)) {
                 block(player.id);
             }
-        });
+        }, their_games);
         ImGui::PopID();
     }
     if (collection_) {
@@ -4057,6 +4141,9 @@ void App::library_page(float width) {
         }
         bool usable = !one.checking && !one.file_path.empty() && file.usable();
         std::string status = one.checking ? std::string("Checking…") : one.file_path.empty() ? std::string(one.about->file_empty) : file.message;
+        if (!one.program_note.empty()) {
+            status += "  ·  " + one.program_note; // (what the program says of itself: its row shows it)
+        }
         ImGui::PushID(static_cast<int>(which));
         ImVec2 row_top = ImGui::GetCursorScreenPos();
         // (Play first, so that the ring coming into the row from the left is on it)

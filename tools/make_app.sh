@@ -8,19 +8,34 @@
 # RetroArch's shader presets (tools/librashader.sh).
 # No game data: the player points the launcher at their own ROM set. The game program does contain code translated
 # from the game: whether a bundle is given to others is the port owner's decision.
+# A game with no translated code (work/<id>/gen) would run interpreted, far slower: the script stops, naming each and
+# the command that makes its translation (tools/check_gen.sh). INTERPRETED=1 builds the app anyway, marked: named
+# "<name> (interpreted)", with the games in its Info.plist (SpelunkompInterpreted). To install Spelunkomp, use the
+# release zip or tools/release/macos.sh. GAMES="a b": the collection with those games only (a test).
 set -e
+if [ "${1:-}" = "--collection" ]; then
+    GAMES=${GAMES:-$(for cfg in games/*/game.cfg; do printf '%s ' "$(basename "$(dirname "$cfg")")"; done)}
+else
+    GAMES=${GAME:-mushisam}
+fi
+interpreted=$(tools/check_gen.sh --missing $GAMES)
+if [ -n "$interpreted" ]; then
+    [ "${INTERPRETED:-}" = 1 ] || { tools/check_gen.sh $GAMES; exit 1; }
+    echo "warning: INTERPRETED=1: the app's programs for these games run on the interpreters: $interpreted" >&2
+fi
+mark=""
+[ -z "$interpreted" ] || mark=" (interpreted)"
 if [ "${1:-}" = "--collection" ]; then
     # The collection: its launcher and every game's program (tools/collection.sh builds them in build/collection)
     B=${B:-build/collection}
-    NAME="Spelunkomp"
+    NAME="Spelunkomp$mark"
     APP_ID=io.github.tmcleroy.spelunkomp
     EXE=spelunkomp-launcher
     APP="$B/$NAME.app"
     rm -rf "$APP"
     mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Frameworks" "$APP/Contents/Resources"
     cp "$B/spelunkomp-launcher" "$APP/Contents/MacOS/"
-    for cfg in games/*/game.cfg; do
-        id=$(basename "$(dirname "$cfg")")
+    for id in $GAMES; do
         [ -f "$B/$id" ] && cp "$B/$id" "$APP/Contents/MacOS/"
     done
 else
@@ -30,7 +45,7 @@ else
     cmake -S . -B "$B" -G Ninja -DGAME="$GAME" -DLAUNCHER=ON > /dev/null && ninja -C "$B" > /dev/null
     CFG=games/$GAME/game.cfg
     value() { sed -n "s/^$1 = //p" "$CFG" | head -1; }
-    NAME=$(value name)
+    NAME="$(value name)$mark"
     APP_ID=$(value app_id)
     EXE=$GAME-launcher
     APP="$B/$NAME.app"
@@ -77,6 +92,11 @@ sdl=$(ls "$(brew --prefix sdl3 2>/dev/null)"/share/licenses/SDL3/LICENSE.txt "$(
 [ -n "$sdl" ] && cp "$sdl" "$L/SDL3-zlib.txt"
 VERSION=$(cat VERSION 2>/dev/null || echo 0.1); VERSION=${VERSION%%-*}
 
+# (a build with games that have no translated code says which: tools/check_gen.sh)
+plist_mark=""
+[ -z "$interpreted" ] || plist_mark="
+    <key>SpelunkompInterpreted</key><string>$interpreted</string>"
+
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -91,10 +111,14 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>CFBundleVersion</key><string>1</string>
     <key>LSMinimumSystemVersion</key><string>13.0</string>
     <key>NSHighResolutionCapable</key><true/>
-    <key>LSApplicationCategoryType</key><string>public.app-category.games</string>
+    <key>LSApplicationCategoryType</key><string>public.app-category.games</string>$plist_mark
 </dict>
 </plist>
 PLIST
 
 codesign --force --deep -s - "$APP" 2>/dev/null
-echo "built $APP"
+if [ -n "$interpreted" ]; then
+    echo "built $APP: INTERPRETED, no translated code for $interpreted"
+else
+    echo "built $APP"
+fi

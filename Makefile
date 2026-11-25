@@ -13,6 +13,9 @@
 #   make check         the three above (no game needed)
 #   make collection    every game and the launcher together in build/collection (tools/collection.sh)
 #   make app           the macOS app with every game (tools/make_app.sh --collection)
+# These two stop unless every game has its translated code (tools/check_gen.sh names those that have none and the
+# command that makes it); INTERPRETED=1 builds them anyway, marked "interpreted". To install Spelunkomp, use the
+# release zip or tools/release/macos.sh.
 #   make android       the Android app with every game (build/release/Spelunkomp-android.apk: tools/release/android.sh)
 GAME ?= mushisam
 BUILD_TYPE ?= Release

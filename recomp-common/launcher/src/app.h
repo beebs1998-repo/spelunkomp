@@ -95,6 +95,7 @@ private:
         recomp::Ini settings;            // its settings.ini: features, controls
         std::vector<recomp::FeatureInfo> features;
         std::string features_error;
+        std::string program_note;        // what its program's --list-features says of it (settings.h: FeatureListNote), or ""
         std::string file_path;
         launcher::FileCheck file;        // (under mutex_ when checked on a thread)
         std::atomic<bool> checking{false};
@@ -231,6 +232,7 @@ private:
     // Features (settings.h: the rules the game follows too).
     void load_features(Slot& slot);
     void find_shared();
+    void give_shared();  // (a game new to the collection: what the others have of a shared feature)
     void set_preset(const std::string& preset);
     void set_feature(Slot& slot, size_t index, int value);
     void set_shared(size_t index, int value);

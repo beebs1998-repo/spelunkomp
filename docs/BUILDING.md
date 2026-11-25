@@ -41,7 +41,10 @@ make GAME=mushisam
 translation (CONTRIBUTING.md) take the same set.
 
 The collection (every game and the launcher in `build/collection/`) is `make collection`; the macOS app made from it
-is `make app` (`tools/make_app.sh --collection`).
+is `make app` (`tools/make_app.sh --collection`). Both need every game's translation: they stop, naming each game
+without one and the command that makes it (`tools/check_gen.sh`). `INTERPRETED=1` builds them anyway, marked: the app
+is `Spelunkomp (interpreted).app`, and such a program logs `interpreted build: no translated code` and has a note on
+its launcher row. To install locally, use the release zip or `tools/release/macos.sh`.
 
 ## Release builds
 

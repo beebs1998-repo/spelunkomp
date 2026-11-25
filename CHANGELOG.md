@@ -9,6 +9,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
   II only paused the game or went back a few frames: the board's saved state changes size with the number of sprites
   on screen, and each change threw rewind's history away. Rewind now keeps a state of any size. Save states are
   unchanged.
+- **`make app` needs every game's translation**: it and `make collection` stop, naming each game without one and
+  the command that makes it, instead of quietly building programs that run on the interpreters. `INTERPRETED=1` builds
+  them anyway, marked: the app is `Spelunkomp (interpreted).app`, and such a program logs `interpreted build: no
+  translated code` and has a note on its launcher row.
 
 ## 0.3.0-beta.1
 
