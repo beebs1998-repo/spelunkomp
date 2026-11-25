@@ -525,6 +525,20 @@ brought up once at the end as the last read left them. Only in native mode: the 
 tools/check.sh compares the translations with, runs every turn, so check.sh compares the skip with the turns run too.
 `SPELUNK_NO_POLL_SKIP=1` runs every turn.
 
+The blitter's wait is the second shape, the same way:
+
+    loop: mov.l @r1,r0     ; the blitter's status (B8000010)
+          tst   #0x10,r0
+          bt/s  loop
+          nop
+
+turning while the blitter's status reads busy (0). The status reads busy until the list's end (m_blitterDone) and
+changes only as it is read: the board says, for each turn's read, whether it would read as the last did and change
+nothing (Bus::ReadSteady), which it does while the read comes before the list's end. The turn whose read would come
+after it is run as the board runs it. With the slowdown on, the list's end is also the CPU's event (IRQ1), which stops
+the block anyway. It is the busiest loop of another shape left after the frame's wait: 1.4% to 6.7% of the timing
+events, most in Mushihimesama, Matsuri and the dfk/sdoj engine's games.
+
 The shadow build (tools/shadow/) runs every skip both ways. It works the turns out, puts everything back, runs the
 same turns through the interpreter with both models at every event, and compares registers, cycles, T, the timers and
 the model's every field. The first difference stops the run; the run goes on from the turns run. Muchi Muchi Pork!'s

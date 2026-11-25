@@ -489,8 +489,9 @@ int main(int argc, char **argv) {
         board->cpu.SaveRecording(recordPath.c_str());
     }
     if (board->cpu.pollSkips) {
-        fprintf(stderr, "poll loops: %llu turns worked out in %llu skips\n", static_cast<unsigned long long>(board->cpu.pollTurnsSkipped),
-                static_cast<unsigned long long>(board->cpu.pollSkips));
+        fprintf(stderr, "poll loops: %llu turns worked out in %llu skips (%llu of them the blitter's wait)\n",
+                static_cast<unsigned long long>(board->cpu.pollTurnsSkipped), static_cast<unsigned long long>(board->cpu.pollSkips),
+                static_cast<unsigned long long>(board->cpu.pollStatusTurns));
     }
 #ifdef SPELUNK_SHADOW_TIMING
     fprintf(stderr, "shadow: %llu events compared with the reference model, all the same; %llu poll-loop skips (%llu turns) the same as the turns run\n",

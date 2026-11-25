@@ -71,6 +71,16 @@ uint16 Cv1000::Fetch(uint32 address) {
     return 0x0009; // (nop)
 }
 
+// The blitter's status, read by a poll loop (SH3::PollTurn): while a list runs it reads busy until m_blitterDone, the
+// list's end, and then ready; idle, ready until the CPU starts a list, which the loop does not. (Logged blits note the
+// first poll of a list: not then)
+bool Cv1000::ReadSteady(uint32 address, uint64 cycle) {
+    if (address != 0x18000010u || (g_blitLog && blitter.busy && !m_pollSeen)) {
+        return false;
+    }
+    return !blitter.busy || cycle < m_blitterDone;
+}
+
 uint32 Cv1000::Read(uint32 address, unsigned size) {
     if (address < 0x400000) {
         uint32 v = 0;

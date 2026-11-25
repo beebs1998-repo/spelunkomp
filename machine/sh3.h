@@ -58,6 +58,12 @@ public:
     virtual void PortWrite(unsigned port, uint8 value) {}
     // The cycle the board asked for (SH3::Schedule) has come
     virtual void Event() {}
+    // A word of the board's (physical `address`) that a poll loop reads (SH3::PollTurn): true if a read of it at
+    // `cycle`, later than the last, gives what that one gave and changes nothing. The board's own events end the loop
+    // (blockStop) before anything else can change it
+    virtual bool ReadSteady(uint32 address, uint64 cycle) {
+        return false;
+    }
 };
 
 class SH3;
@@ -160,7 +166,7 @@ public:
         cycles += memoryTiming.Access(timingPaths, at, a, bytes, write, inSlot, cycles,
                                       [this](uint32 p) -> uint16 { return TimingCode(p); });
 #endif
-        if (at == poll.slot) [[unlikely]] {
+        if (at == poll.reader) [[unlikely]] {
             poll.read = cycles; // (the poll loop's read: when it is made, after what the model charged)
         }
     }
@@ -179,17 +185,21 @@ public:
             PollTurn(target);
         }
     }
-    // The games' wait for a timer (docs/SLOWDOWN.md, "The poll loop"): a loop of four instructions, `sub Rm,Rn;
-    // cmp/hi Rm,Rn; bt/s back; mov.l @Rm,Rn` reading a timer's TCNT in the delay slot, that turns until enough of it has
-    // counted. Most of a busy frame's timing events are its turns, each the same as the one before. Once two turns in a
-    // row have cost the same and moved the model's state the same way (every field the same, or later by the turn's
-    // cycles), the turns after them, up to the loop's end or the block's stop, are worked out here instead of run: the
-    // registers as the instructions leave them, TCNT as it reads at each turn's read, the model's state moved on by
-    // the same steps. Native mode only (the interpreter's blocks mode, which tools/check.sh compares with, runs every
-    // turn). The shadow build (tools/shadow/) runs every skip both ways and compares them
+    // The games' waits (docs/SLOWDOWN.md, "The poll loop"): a loop of four instructions that turns until what it reads
+    // says to go on. Two shapes: the frame's wait, `sub Rm,Rn; cmp/hi Rm,Rn; bt/s back; mov.l @Rm,Rn`, reading a word
+    // of main RAM or a timer's TCNT in the delay slot, until enough has counted; and the blitter's, `mov.l @Rm,R0;
+    // tst #imm,R0; bt/s back; nop`, reading the blitter's status until it says it is done. Most of a busy frame's
+    // timing events are their turns, each the same as the one before. Once two turns in a row have cost the same and
+    // moved the model's state the same way (every field the same, or later by the turn's cycles), the turns after
+    // them, up to the loop's end or the block's stop, are worked out here instead of run: the registers as the
+    // instructions leave them, what each turn's read gives then, the model's state moved on by the same steps. Native
+    // mode only (the interpreter's blocks mode, which tools/check.sh compares with, runs every turn). The shadow build
+    // (tools/shadow/) runs every skip both ways and compares them
     struct PollLoop {
-        uint32 head = 0, slot = 0xFFFFFFFFu; // (the loop's first instruction and its delay slot; none: 0, and no slot)
+        uint32 head = 0, reader = 0xFFFFFFFFu; // (the loop's first instruction and the one that reads; none: 0, none)
         uint8 n0 = 0, m0 = 0, n1 = 0, m1 = 0, n3 = 0, m3 = 0; // (sub Rm0,Rn0; cmp/hi Rm1,Rn1; mov.l @Rm3,Rn3)
+        bool status = false; // (the blitter's shape: mov.l @Rm3,R0; tst #mask,R0)
+        uint8 mask = 0;
         int turns = 0;                // (turns seen in a row, each ending where the one before did)
         uint64 end = 0, read = 0;     // (the last turn's end, and this turn's read)
         uint64 cost = 0, readAt = 0;  // (the last turn's cycles, and its read's cycles into the turn)
@@ -198,11 +208,12 @@ public:
     } poll;
     bool pollSkip = true; // (SPELUNK_NO_POLL_SKIP: every turn run)
     bool pollInside = false; // (the shadow build's turns run the slow way: no skip within them)
-    uint64 pollSkips = 0, pollTurnsSkipped = 0;
+    uint64 pollSkips = 0, pollTurnsSkipped = 0, pollStatusTurns = 0; // (pollStatusTurns: the blitter-wait shape's)
     void PollTurn(uint32 target);
+    bool PollReadable(uint32 a);
     void PollForget() {
         poll.head = 0;
-        poll.slot = 0xFFFFFFFFu;
+        poll.reader = 0xFFFFFFFFu;
         poll.turns = 0;
     }
 #ifdef SPELUNK_SHADOW_TIMING

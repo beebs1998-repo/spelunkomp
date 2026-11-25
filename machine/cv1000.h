@@ -101,6 +101,7 @@ public:
 
     // Bus
     uint32 Read(uint32 address, unsigned size) override;
+    bool ReadSteady(uint32 address, uint64 cycle) override;
     void Write(uint32 address, uint32 value, unsigned size) override;
     uint16 Fetch(uint32 address) override;
     void Event() override;

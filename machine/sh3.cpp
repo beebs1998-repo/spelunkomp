@@ -381,12 +381,20 @@ namespace {
     bool IsTcnt(uint32 a) {
         return a == 0xFFFFFE98u || a == 0xFFFFFEA4u || a == 0xFFFFFEB0u;
     }
-    // (what the loop may read: a timer's count, worked out for each turn's read, or a word of main RAM, which nothing
-    // writes while the loop turns: the CPU writes nothing in it, an interrupt or the board's event ends it first)
-    bool PollReadable(uint32 a) {
-        return IsTcnt(a) || (SH3::IsRam(a) && (a & 3) == 0);
-    }
 } // namespace
+
+// (what the loop may read: a timer's count, worked out for each turn's read; a word of main RAM, which nothing writes
+// while the loop turns: the CPU writes nothing in it, an interrupt or the board's event ends it first; or, in the
+// blitter's shape, a word of the board's that reads the same until its event (Bus::ReadSteady))
+bool SH3::PollReadable(uint32 a) {
+    if ((a & 3) != 0) {
+        return false;
+    }
+    if (IsTcnt(a) || IsRam(a)) {
+        return true;
+    }
+    return poll.status && a < 0xE0000000u && (a & 0x1C000000u) != 0x04000000u && bus->ReadSteady(a & 0x1FFFFFFFu, cycles);
+}
 
 void SH3::PollTurn(uint32 target) {
     if (mode != Mode::Native || !pollSkip || pollInside || !timing) {
@@ -397,20 +405,36 @@ void SH3::PollTurn(uint32 target) {
         // (a branch back two instructions: is this the loop?)
         PollForget();
         const uint16 op0 = TimingCode(target), op1 = TimingCode(target + 2), op2 = TimingCode(target + 4), op3 = TimingCode(target + 6);
-        if ((op0 & 0xF00F) != 0x3008 || (op1 & 0xF00F) != 0x3006 || op2 != 0x8DFC || (op3 & 0xF00F) != 0x6002) {
+        if (op2 != 0x8DFC) {
             return;
         }
-        poll.n0 = (op0 >> 8) & 15;
-        poll.m0 = (op0 >> 4) & 15;
-        poll.n1 = (op1 >> 8) & 15;
-        poll.m1 = (op1 >> 4) & 15;
-        poll.n3 = (op3 >> 8) & 15;
-        poll.m3 = (op3 >> 4) & 15;
-        if (poll.m3 == poll.n0 || poll.m3 == poll.n3 || poll.n3 != poll.n0 || !PollReadable(R[poll.m3])) {
+        if ((op0 & 0xF00F) == 0x3008 && (op1 & 0xF00F) == 0x3006 && (op3 & 0xF00F) == 0x6002) {
+            // (the frame's wait: sub Rm0,Rn0; cmp/hi Rm1,Rn1; bt/s; mov.l @Rm3,Rn3, which reads in the delay slot)
+            poll.status = false;
+            poll.n0 = (op0 >> 8) & 15;
+            poll.m0 = (op0 >> 4) & 15;
+            poll.n1 = (op1 >> 8) & 15;
+            poll.m1 = (op1 >> 4) & 15;
+            poll.n3 = (op3 >> 8) & 15;
+            poll.m3 = (op3 >> 4) & 15;
+            if (poll.m3 == poll.n0 || poll.m3 == poll.n3 || poll.n3 != poll.n0 || !PollReadable(R[poll.m3])) {
+                return;
+            }
+            poll.reader = target + 6;
+        } else if ((op0 & 0xFF0F) == 0x6002 && (op1 & 0xFF00) == 0xC800 && op3 == 0x0009) {
+            // (the blitter's wait: mov.l @Rm3,R0; tst #mask,R0; bt/s; nop: it reads first)
+            poll.status = true;
+            poll.n3 = 0;
+            poll.m3 = (op0 >> 4) & 15;
+            poll.mask = op1 & 0xFF;
+            if (poll.m3 == 0 || !PollReadable(R[poll.m3])) {
+                return;
+            }
+            poll.reader = target;
+        } else {
             return;
         }
         poll.head = target;
-        poll.slot = target + 6;
         poll.end = now;
         poll.before = memoryTiming;
         poll.turns = 0;
@@ -461,20 +485,23 @@ void SH3::PollTurn(uint32 target) {
 #endif
     uint64 turns = 0, lastRead = 0;
     while (cycles < blockStop && !interruptReady) {
-        const uint32 r0 = R[poll.n0] - R[poll.m0];
-        const uint32 rn = poll.n1 == poll.n0 ? r0 : R[poll.n1], rm = poll.m1 == poll.n0 ? r0 : R[poll.m1];
-        if (!(rn > rm)) {
-            break; // (the loop ends this turn: the block runs it)
+        uint32 r0 = 0;
+        if (!poll.status) {
+            r0 = R[poll.n0] - R[poll.m0];
+            const uint32 rn = poll.n1 == poll.n0 ? r0 : R[poll.n1], rm = poll.m1 == poll.n0 ? r0 : R[poll.m1];
+            if (!(rn > rm)) {
+                break; // (the loop ends this turn: the block runs it)
+            }
         }
-        // (the word as it reads then: main RAM's, or TCNT with the timers brought up to that cycle on a copy, as
-        // ReadSlow would)
+        // (the word as it reads then: main RAM's; TCNT with the timers brought up to that cycle on a copy, as ReadSlow
+        // would; or the board's word, the same as the last turn read while it is steady)
         const uint64 readCycle = cycles + poll.readAt;
         const uint32 address = R[poll.m3];
         uint32 value;
         if (IsRam(address)) {
             std::memcpy(&value, ram + (address & (kRamSize - 4)), 4);
             value = __builtin_bswap32(value);
-        } else {
+        } else if (IsTcnt(address)) {
             Timer was[3];
             std::memcpy(was, tmu, sizeof tmu);
             const uint64 nowWas = cycles;
@@ -482,9 +509,20 @@ void SH3::PollTurn(uint32 target) {
             value = ReadSlow(address & ~3u, 4);
             std::memcpy(tmu, was, sizeof tmu);
             cycles = nowWas;
+        } else if (bus->ReadSteady(address & 0x1FFFFFFFu, readCycle)) {
+            value = R[poll.n3];
+        } else {
+            break; // (it may read otherwise now: the block runs the turn)
         }
-        R[poll.n0] = r0;
-        R[poll.n3] = value;
+        if (poll.status) {
+            if ((value & poll.mask) != 0) {
+                break; // (the loop ends this turn: the block runs it)
+            }
+            R[0] = value;
+        } else {
+            R[poll.n0] = r0;
+            R[poll.n3] = value;
+        }
         T = 1;
         cycles += poll.cost;
         for (int i = 0; i < kPollTimes; i++) {
@@ -502,16 +540,19 @@ void SH3::PollTurn(uint32 target) {
         return;
     }
     // (the timers as the last turn's read left them)
-    if (!IsRam(R[poll.m3])) {
+    if (IsTcnt(R[poll.m3])) {
         const uint64 endCycles = cycles;
         cycles = lastRead;
         SyncTimers();
         cycles = endCycles;
     }
-    at = poll.slot;
+    at = poll.reader;
     inSlot = false;
     pollSkips++;
     pollTurnsSkipped += turns;
+    if (poll.status) {
+        pollStatusTurns += turns;
+    }
     poll.end = cycles;
     poll.before = memoryTiming;
 #ifdef SPELUNK_SHADOW_TIMING
