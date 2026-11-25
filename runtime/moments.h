@@ -2,10 +2,13 @@
 // Copyright (C) 2026 Tommy McLeroy. Part of spelunkomp.
 // The training tools' memory of a small board (Cave's 68000 boards: a third of a megabyte all told): a moment of
 // play is the whole board written out (Board::Serialize), and the moments of the last minute or so are kept as the
-// 4 KB pages of it that changed from one to the next. (The CV1000, with its 16 MB of RAM and its VRAM on the GPU,
-// has runtime/timeline.h.)
+// 4 KB pages of it that changed from one to the next. The board need not be the same size each time (PGM's sprite
+// lists are written as long as they are, issue #48): a moment keeps the size it was then too, and a page of another
+// size, or that only one of the two has, counts as changed. (The CV1000, with its 16 MB of RAM and its VRAM on the
+// GPU, has runtime/timeline.h.)
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <deque>
@@ -30,19 +33,23 @@ public:
     }
     // A moment kept now: `state` is the board as it is
     void Keep(const std::vector<uint8_t> &state) {
-        if (!m_begun || state.size() != m_last.size()) {
+        if (!m_begun) {
             Clear();
             m_last = state;
             m_begun = true;
             return;
         }
         Moment m;
+        m.size = m_last.size();
+        // (a page is kept as it was when it differs, or is of another size now: the last page of either, and every
+        // page that only one of them has)
+        const size_t most = std::max(m.size, state.size());
         size_t bytes = 0;
-        for (size_t at = 0; at < state.size(); at += kPage) {
-            const size_t size = std::min(kPage, state.size() - at);
-            if (std::memcmp(&m_last[at], &state[at], size) != 0) {
+        for (size_t at = 0; at < most; at += kPage) {
+            const size_t was = PageSize(m.size, at), is = PageSize(state.size(), at);
+            if (was != is || std::memcmp(&m_last[at], &state[at], was) != 0) {
                 m.pages.push_back(static_cast<uint32_t>(at / kPage));
-                bytes += size;
+                bytes += was;
             }
         }
         m.pages.shrink_to_fit();
@@ -50,10 +57,18 @@ public:
         m.before.resize(bytes);
         size_t to = 0;
         for (uint32_t page : m.pages) {
-            const size_t at = static_cast<size_t>(page) * kPage, size = std::min(kPage, state.size() - at);
-            std::memcpy(&m.before[to], &m_last[at], size);
-            std::memcpy(&m_last[at], &state[at], size);
-            to += size;
+            const size_t at = static_cast<size_t>(page) * kPage, was = PageSize(m.size, at);
+            if (was) {
+                std::memcpy(&m.before[to], &m_last[at], was);
+            }
+            to += was;
+        }
+        m_last.resize(state.size());
+        for (uint32_t page : m.pages) {
+            const size_t at = static_cast<size_t>(page) * kPage, is = PageSize(state.size(), at);
+            if (is) {
+                std::memcpy(&m_last[at], &state[at], is);
+            }
         }
         m_frames = 0;
         m_bytes += m.Bytes();
@@ -72,11 +87,14 @@ public:
         }
         if (!m_frames) {
             const Moment &m = m_moments.back();
+            m_last.resize(m.size);
             size_t from = 0;
             for (uint32_t page : m.pages) {
-                const size_t at = static_cast<size_t>(page) * kPage, size = std::min(kPage, m_last.size() - at);
-                std::memcpy(&m_last[at], &m.before[from], size);
-                from += size;
+                const size_t at = static_cast<size_t>(page) * kPage, was = PageSize(m.size, at);
+                if (was) {
+                    std::memcpy(&m_last[at], &m.before[from], was);
+                }
+                from += was;
             }
             m_bytes -= m.Bytes();
             m_moments.pop_back();
@@ -100,7 +118,12 @@ public:
 
 private:
     static constexpr size_t kPage = 0x1000;
+    // (the bytes of the page at `at` in a state of `size`: none past its end)
+    static size_t PageSize(size_t size, size_t at) {
+        return at < size ? std::min(kPage, size - at) : 0;
+    }
     struct Moment {
+        size_t size = 0;             // the board's size then
         std::vector<uint32_t> pages; // the pages that differ from the moment before
         std::vector<uint8_t> before; // (as they were then)
         size_t Bytes() const {       // (as allocated)

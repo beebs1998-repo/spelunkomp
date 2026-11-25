@@ -5,6 +5,11 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **Rewind works on the PGM games** (#48). Holding rewind in Dai-Ou-Jou Black Label, Ketsui, Espgaluda or DoDonPachi
+  II only paused the game or went back a few frames: the board's saved state changes size with the number of sprites
+  on screen, and each change threw rewind's history away. Rewind now keeps a state of any size. Save states are
+  unchanged.
+
 ## 0.3.0-beta.1
 
 A much lighter CV1000 (slower machines now hold 60), touch controls that follow the finger on Android, 99 save slots,
