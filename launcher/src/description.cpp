@@ -126,12 +126,14 @@ launcher::Description describe_game(const char *config) {
                             "A gamepad's use hides them. Back, a gamepad's Guide, or Start and Select "
                             "together: the in-game menu (save states, speed, features, coin, reset, quit; Menu button, above: "
                             "which gamepad buttons). "
-                            "The first two gamepads are players 1 and 2."}};
+                            "Gamepads: the Controllers page says which is which player's; the rest go to players 1 and 2 "
+                            "in the order they were connected."}};
 #else
     d.controls = {{"Keys", "Esc, F1, a gamepad's Guide, or Start and Select together: the in-game menu (save states, speed, "
                            "features, coin, reset, quit; Menu button, above: which gamepad buttons)   F5 / F9: save and load a state   P: pause   O: a frame on   "
                            "F2: the board's test switch   F3: service   F11: full screen. "
-                           "The first two gamepads are players 1 and 2."}};
+                           "Gamepads: the Controllers page says which is which player's; the rest go to players 1 and 2 "
+                           "in the order they were connected."}};
 #endif
     return d;
 }
