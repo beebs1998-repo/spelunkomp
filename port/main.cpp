@@ -27,6 +27,7 @@
 #include "../recomp-common/menu_sdl.h"
 #include "../recomp-common/menu_turn.h"
 #include "../recomp-common/own_shaders.h"
+#include "../runtime/board_settings.h"
 #include "../runtime/dodge.h"
 #include "../runtime/game.h"
 #include "../runtime/hit_boxes.h"
@@ -276,6 +277,8 @@ struct Controls {
 
     // The controls given instead of the host's (a replay, a game run unseen): players 1 and 2, then the switches
     const uint32_t *forced = nullptr;
+    // The features (autofire's, the Controls page: runtime/board_settings.h)
+    const std::vector<int> *features = nullptr;
 
     void Read() {
         if (readThisFrame) {
@@ -299,6 +302,12 @@ struct Controls {
         const uint32_t p2 = port::BoundBits(*table, *bindings, 1, keys, pads[1]);
         board->inputs[0] = (p1 & 0xFF) | scripted[0];
         board->inputs[1] = (p2 & 0xFF) | scripted[1];
+        // (autofire: the buttons it is on for let go on some frames while held, by the board's frame number, so a
+        // replay of what was read, rewind and run-ahead's frames have the same)
+        if (features) {
+            board->inputs[0] = Autofire(board->inputs[0], board->frame, *features);
+            board->inputs[1] = Autofire(board->inputs[1], board->frame, *features);
+        }
         uint32_t system = scriptedSystem;
         system |= (p1 & port::kStartBit) ? kSysStart1 : 0;
         system |= (p2 & port::kStartBit) ? kSysStart2 : 0;
@@ -353,6 +362,7 @@ int main(int argc, char **argv) {
     std::map<uint64_t, std::string> shots, windowShots; // (--window-shot: the window's own pixels, as scaled)
     std::map<uint64_t, std::string> ramDumps;           // (--dump-ram FRAME:file: main RAM as the board holds it, for finding a game's facts)
     std::string windowShotNow, pictureLog; // (--picture-log FILE: a line per frame, the frame and a hash of the picture shown)
+    std::string inputLog; // (--input-log FILE: a line per frame, the board's frame and the controls the game was given: checks)
     struct Held {
         uint64_t from, count;
         uint32_t bits;
@@ -379,6 +389,10 @@ int main(int argc, char **argv) {
         }
         const std::string a = argv[i];
         if (a == "--list-features") {
+            if (!BoardSettingsProblem().empty()) {
+                fprintf(stderr, "%s\n", BoardSettingsProblem().c_str()); // (game.cfg's board options: runtime/board_settings.h)
+                return 1;
+            }
             fputs(port::FeatureListFor(AllFeatures()).c_str(), stdout); // (the launcher's Features page, and its note)
             return 0;
         }
@@ -408,6 +422,8 @@ int main(int argc, char **argv) {
             ramDumps[strtoull(v.substr(0, v.find(':')).c_str(), nullptr, 0)] = v.substr(v.find(':') + 1);
         } else if (a == "--picture-log" && i + 1 < argc) {
             pictureLog = argv[++i];
+        } else if (a == "--input-log" && i + 1 < argc) {
+            inputLog = argv[++i];
         } else if (a == "--window-shot" && i + 1 < argc) {
             const std::string v = argv[++i];
             windowShots[strtoull(v.substr(0, v.find(':')).c_str(), nullptr, 0)] = v.substr(v.find(':') + 1);
@@ -464,6 +480,10 @@ int main(int argc, char **argv) {
         ParseGameConfig(BuiltInGameConfig(), config);
     } else {
         ok = ReadGameConfig(configPath, config, error);
+    }
+    if (ok && !BoardSettingsProblem().empty()) {
+        error = BoardSettingsProblem(); // (a declaration in game.cfg that could not be read: runtime/board_settings.h)
+        ok = false;
     }
     if (!ok || !LoadSet(romFolder, config, *board, error)) {
         fprintf(stderr, "%s\n", error.c_str());
@@ -556,6 +576,57 @@ int main(int argc, char **argv) {
             std::memcpy(saved, data.data(), size);
         }
     }
+    // The Board page's settings (runtime/board_settings.h): put in over the board's own as the board is made, and the
+    // board's own kept in the saves folder. A store the game has never written (a CV1000's EEPROM before the game's first
+    // power on) has the game's first power on run unseen first, on a board of its own, so that the game's own settings
+    // are there to be changed and the game does not write them over
+    BoardSettingsInPlay boardSettings;
+    boardSettings.Loaded(hw.Store());
+    if (BoardSettingsInPlay::AnyChosen(features) && StoreBlank(hw.Store())) {
+        auto first = std::make_unique<Board>();
+        std::string why;
+        if (LoadSet(romFolder, config, *first, why)) {
+            Hw firstHw(first);
+            Hw::StartCpu(*first);
+            // (written once what it holds has stood for two seconds: an EEPROM's every word, a battery RAM's settings,
+            // the rest of it being the game's work)
+            auto look = [&]() {
+                const SettingsStore store = firstHw.Store();
+                std::vector<uint32_t> now;
+                if (store.words) {
+                    now.assign(store.words, store.words + store.wordCount);
+                } else {
+                    for (const BoardSetting &setting : BoardSettings()) {
+                        now.push_back(SettingValue(store, setting));
+                    }
+                }
+                return now;
+            };
+            std::vector<uint32_t> before;
+            uint64_t still = 0, ran = 0;
+            auto written = [&]() {
+                return !StoreBlank(firstHw.Store()) && std::any_of(before.begin(), before.end(), [](uint32_t v) { return v != 0; });
+            };
+            for (; ran < 3600 && (!written() || still < 120); ran++) {
+                first->RunFrame();
+                std::vector<uint32_t> now = look();
+                still = now == before ? still + 1 : 0;
+                before.swap(now);
+            }
+            size_t size = 0, firstSize = 0;
+            uint8_t *saved = hw.Saved(size);
+            const uint8_t *firstSaved = firstHw.Saved(firstSize);
+            if (written() && firstSize == size) {
+                std::memcpy(saved, firstSaved, size);
+                printf("board settings: the game's own written at its first power on (%llu frames, unseen)\n", static_cast<unsigned long long>(ran));
+            }
+        }
+        boardSettings.Loaded(hw.Store());
+    }
+    {
+        SettingsStore store = hw.Store();
+        boardSettings.Apply(store, features);
+    }
     bool netGuest = false; // (in another's online match: the EEPROM is the host's, never written here)
     auto saveKept = [&]() {
         if (eepromPath.empty() || !hw.SavedChanged() || netGuest) {
@@ -564,8 +635,10 @@ int main(int argc, char **argv) {
         const std::string temp = eepromPath + ".new";
         if (FILE *f = fopen(temp.c_str(), "wb")) {
             size_t size = 0;
-            const uint8_t *saved = hw.Saved(size);
-            const bool wrote = fwrite(saved, 1, size, f) == size;
+            hw.Saved(size);
+            // (the board's own settings where the Board page's were put in)
+            const std::vector<uint8_t> kept = boardSettings.Kept(hw.Store());
+            const bool wrote = kept.size() == size && fwrite(kept.data(), 1, size, f) == size;
             fclose(f);
             if (wrote && std::rename(temp.c_str(), eepromPath.c_str()) == 0) {
                 hw.SavedChanged() = false;
@@ -1356,6 +1429,15 @@ int main(int argc, char **argv) {
         mc.pages.push_back({hitboxes::kPage, kTrainingPage, "Hit boxes drawn over the picture: each kind on or off, and its colour.", false});
         mc.pages.push_back({kAttractPage, kModesPage,
                             "The game's own show on a loop, with no coin in: the logos, the title, the demonstrations of play and the rankings.", false});
+        // (the Board page under Game, where game.cfg declares the board's settings; the Controls page's autofire:
+        // runtime/board_settings.h)
+        if (!BoardSettings().empty()) {
+            mc.pages.push_back({"Board", "Game",
+                                "The game's own settings, as its test menu (F2) has them, kept in the board's EEPROM (the PGM's: its "
+                                "battery RAM): each as the board is set unless chosen here. Put in as the board starts: Reset game to "
+                                "play with a change."});
+        }
+        mc.pages.push_back({"Controls", "", "The controls: autofire for each of the game's buttons."});
         // (the Arcade monitor page under Display, as cps2recomp has it; none on a phone)
         if (FeatureIndex("crt_resolution") < AllFeatures().size()) {
             mc.pages.push_back({"Arcade monitor", "Display", "A CRT at the board's own resolution: set on the launcher."});
@@ -1393,6 +1475,7 @@ int main(int argc, char **argv) {
     Controls controls;
     controls.table = &table;
     controls.bindings = &bindings;
+    controls.features = &features;
     // A key a control has been given (the launcher's Controllers page): it does only that, not a hotkey's work
     auto keyBound = [&](SDL_Scancode key) {
         for (int p = 0; p < 2; p++) {
@@ -1774,6 +1857,10 @@ int main(int argc, char **argv) {
             hw.CarryOver(*fresh);
             Hw::StartCpu(*fresh);
             board = std::move(fresh);
+            {
+                SettingsStore store = hw.Store(); // (the Board page's settings, as they are chosen now)
+                boardSettings.Apply(store, features);
+            }
             attach();
             hw.Attach();
             hw.ToolsLost();
@@ -1888,7 +1975,13 @@ int main(int argc, char **argv) {
     // A frame of the match: player 1's and 2's controls (their stick and buttons, Start and the coin), shown and heard
     // or run unseen and unheard (its sound dropped)
     netGame.step = [&](const uint16_t *players, bool shown) {
-        const uint32_t forced[3] = {players[0] & 0xFFu, players[1] & 0xFFu,
+        // (autofire, each player's own, put in here on both sides alike by the board's frame: the controls sent are as
+        // held, so the other side's guesses of them stay right; Netplay::TheirFeatures)
+        const int me = net ? net->Local() : 0;
+        static const std::vector<int> none;
+        const std::vector<int> &theirs = net ? net->TheirFeatures() : none;
+        const uint32_t forced[3] = {Autofire(players[0] & 0xFFu, board->frame, me == 0 ? features : theirs),
+                                    Autofire(players[1] & 0xFFu, board->frame, me == 1 ? features : theirs),
                                     ((players[0] & port::kStartBit) ? kSysStart1 : 0u) | ((players[1] & port::kStartBit) ? kSysStart2 : 0u) |
                                         ((players[0] & port::kCoinBit) ? kSysCoin1 : 0u) | ((players[1] & port::kCoinBit) ? kSysCoin2 : 0u)};
         controls.forced = forced;
@@ -2108,6 +2201,7 @@ int main(int argc, char **argv) {
         }
     };
     FILE *pictures = pictureLog.empty() ? nullptr : fopen(pictureLog.c_str(), "w");
+    FILE *inputs = inputLog.empty() ? nullptr : fopen(inputLog.c_str(), "w");
     const auto frameTime = Hw::kFrameTime;
     // (the host's own time a frame, port/host_time.h: game.log a minute at a time, and the speed readout's second number)
     port::HostTime hostTime(std::chrono::duration<double, std::milli>(frameTime).count());
@@ -2710,6 +2804,9 @@ int main(int argc, char **argv) {
         late[lateAt] = lateFrame;
         lateFrames += late[lateAt];
         lateAt = (lateAt + 1) % 60;
+        if (inputs) {
+            fprintf(inputs, "%llu %02X %02X %03X\n", static_cast<unsigned long long>(board->frame), board->inputs[0], board->inputs[1], board->system);
+        }
         if (point.IsSet() && attempt.size() < 60 * 60 * 30) {
             attempt.push_back({{board->inputs[0], board->inputs[1], board->system}});
         }
@@ -3035,6 +3132,9 @@ int main(int argc, char **argv) {
         fclose(netLog);
     }
     saveKept();
+    if (inputs) {
+        fclose(inputs);
+    }
     if (pictures) {
         fclose(pictures);
     }

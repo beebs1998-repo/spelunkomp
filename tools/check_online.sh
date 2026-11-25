@@ -11,6 +11,7 @@
 #   START=1500   the frame Start is first pressed (the board has started by then)
 #   DELAY=2      the host's input delay   SEED=1  the made-up play's
 #   EXTRA='...'  more options for both copies (--shader FILE, say)
+#   HOSTEXTRA='...'  more options for the host's copy only (--features autofire_1=1, say: each player's own)
 #   HOSTMENU=1   the host hosts as the in-game menu's Host a match does (at frame 60, playing alone until the other
 #                copy joins; the game then made anew for the match) instead of --host
 #   LOG=1        every confirmed frame's controls and hash, each side's, into work/GAME/online/*-controls.txt (where two
@@ -55,7 +56,7 @@ for g in $GAMES; do
     [ -n "$HOSTMENU" ] && hosting="--net-menu-host 60 --net-port $PORT" && wait=3
     lockf -k /tmp/spelunkomp-gpu.lock sh -c "
         SPELUNK_HIDDEN_WINDOW=1 ./build/$g/$g --roms '$set_' --mute --frames $FRAMES $hosting --net-service off --net-delay $DELAY \
-            --net-name HOST $fake $log1 $EXTRA --net-hashes $out/host.txt $a > $out/host.log 2>&1 &
+            --net-name HOST $fake $log1 $EXTRA $HOSTEXTRA --net-hashes $out/host.txt $a > $out/host.log 2>&1 &
         sleep $wait
         SPELUNK_HIDDEN_WINDOW=1 ./build/$g/$g --roms '$set_' --mute --frames $FRAMES --join 127.0.0.1:$PORT --net-service off \
             --net-name GUEST $fake $log2 $EXTRA --net-hashes $out/join.txt $b > $out/join.log 2>&1

@@ -149,7 +149,7 @@ target_link_libraries(romset-test spelunk_machine spelunk_gen spelunk_game_confi
 # The game's own sources (its features and what they do)
 file(GLOB GAME_SOURCES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/games/${GAME}/src/*.cpp)
 # (runtime/shmup.cpp: the training features of a shooting game, from its facts)
-add_library(spelunk_game STATIC ${GAME_SOURCES} runtime/features.cpp runtime/shmup.cpp runtime/dodge.cpp
+add_library(spelunk_game STATIC ${GAME_SOURCES} runtime/features.cpp runtime/board_settings.cpp runtime/shmup.cpp runtime/dodge.cpp
             recomp-common/settings.cpp recomp-common/menu.cpp)
 # (Dodge training's patterns, data recorded from the game and kept in WORK_DIR like the translations: its mode is built
 # only when they are there, games/ddonpach/src/dodge.cpp)
@@ -157,7 +157,7 @@ if(EXISTS ${WORK_DIR}/${GAME}/dodge_patterns.inc)
   target_compile_definitions(spelunk_game PRIVATE SPELUNK_DODGE=1)
   target_include_directories(spelunk_game PRIVATE ${WORK_DIR}/${GAME})
 endif()
-target_link_libraries(spelunk_game PUBLIC spelunk_machine)
+target_link_libraries(spelunk_game PUBLIC spelunk_machine spelunk_game_config) # (runtime/board_settings.cpp: game.cfg)
 target_link_libraries(spelunk_game_config PUBLIC spelunk_machine)
 
 # The game program and the launcher need SDL3; without it only the board, the headless runner and the checks are built

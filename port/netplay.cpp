@@ -129,8 +129,11 @@ namespace {
         if (name == "run_ahead" || name == "input_lag") {
             return Share::Off; // (on the Game and Display pages, but rollback does what they do)
         }
-        if (category == "Game") {
-            return Share::Host;
+        if (category == "Game" || category == "Board") {
+            return Share::Host; // (the Board page's settings: the host's board, its EEPROM, is the match's)
+        }
+        if (Netplay::PlayersOwn(name)) {
+            return Share::Own; // (each player's own, and the other side told of them: Netplay::TheirFeatures)
         }
         if (category == "Display" || category == "Arcade monitor" || category == "Online" || category == "Hit boxes" || category == "Sound" ||
             name == "input_display" || name == "speed_readout") {
@@ -429,6 +432,7 @@ void Netplay::Welcome(NetGame &game) {
     welcome.U32(static_cast<uint32_t>(stateSize));
     welcome.U32(static_cast<uint32_t>(state.size()));
     welcome.Text(settings.name);
+    welcome.Text(OwnFeaturesText(game));
     greeting = welcome.out;
 }
 
@@ -457,6 +461,7 @@ bool Netplay::Begin(NetGame &game, std::string &error) {
         hello.U32(build);
         hello.Text(RECOMP_VERSION);
         hello.Text(settings.name);
+        hello.Text(OwnFeaturesText(game));
         greeting = hello.out;
         // A match's code (K7Q-M2X: six letters and digits), or the host's address
         joinCode = CodeOf(settings.address);
@@ -818,6 +823,7 @@ int Netplay::Waiting(NetGame &game, std::string &error) {
                 const uint32_t theirs = in.U32();
                 const std::string version = in.Text();
                 const std::string name = in.Text();
+                const std::string theirOwn = in.Text();
                 std::string why;
                 if (protocol == kProtocol && version != RECOMP_VERSION) {
                     why = "The other player has version " + version + " and this one " RECOMP_VERSION ": both need the same version.";
@@ -844,6 +850,7 @@ int Netplay::Waiting(NetGame &game, std::string &error) {
                     peer = from;
                     found = true;
                     theirName = name;
+                    TakeTheirFeatures(theirOwn);
                     chunksHad = 0;
                     Welcome(game);
                     fprintf(stderr, "online: the other player is here\n");
@@ -990,6 +997,7 @@ int Netplay::Waiting(NetGame &game, std::string &error) {
             return -1;
         }
         theirName = in.Text();
+        TakeTheirFeatures(in.Text());
         if (!in.ok) {
             error = "The host's welcome did not make sense.";
             return -1;
@@ -1000,6 +1008,36 @@ int Netplay::Waiting(NetGame &game, std::string &error) {
         sent = 0; // (the first ack at once)
     }
     return 0;
+}
+
+bool Netplay::PlayersOwn(const std::string &featureName) {
+    return featureName.rfind("autofire_", 0) == 0;
+}
+
+std::string Netplay::OwnFeaturesText(NetGame &game) const {
+    std::string text;
+    for (size_t i = 0; i < AllFeatures().size(); i++) {
+        if (PlayersOwn(AllFeatures()[i].name) && game.Feature(i)) {
+            text += AllFeatures()[i].name + "=" + std::to_string(game.Feature(i)) + ",";
+        }
+    }
+    return text;
+}
+
+void Netplay::TakeTheirFeatures(const std::string &text) {
+    theirFeatures.assign(AllFeatures().size(), 0);
+    for (size_t at = 0; at < text.size();) {
+        const size_t comma = std::min(text.find(',', at), text.size());
+        const std::string item = text.substr(at, comma - at);
+        const size_t eq = item.find('=');
+        if (eq != std::string::npos && PlayersOwn(item.substr(0, eq))) {
+            const size_t i = FeatureIndex(item.substr(0, eq));
+            if (i < theirFeatures.size()) {
+                theirFeatures[i] = atoi(item.c_str() + eq + 1);
+            }
+        }
+        at = comma + 1;
+    }
 }
 
 std::string Netplay::Name(int player) const {
