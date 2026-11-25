@@ -70,19 +70,42 @@ private:
     struct Rect {
         int x0, y0, x1, y1;
     };
+    // VRAM is one of two textures (m_vram), the other (m_work) what the next pass draws into, then VRAM in turn: the
+    // two are the same but in m_stale, the areas the other one has not had yet (the last pass's, and what was written
+    // into VRAM since), which the next pass brings first; m_staleAll: all of it (one copy). Everything that reads VRAM
+    // reads m_vram, whichever texture it is now
     SDL_GPUTexture *m_vram = nullptr, *m_work = nullptr, *m_backup = nullptr, *m_backup2 = nullptr;
-    SDL_GPUTexture *m_aside[kAsides] = {};
+    std::vector<Rect> m_stale;
+    bool m_staleAll = true;
+    void Stale(const Rect &area);
+    // A frame's passes, planned before any is recorded: their draws, lists and tiles one after another in the three
+    // data textures (sent in one go: Flush), and the game's own uploads among them in order
+    struct Step {
+        bool upload;
+        Rect area;
+        int tilesW;
+        uint32_t tileAt, pixelsAt; // (the pass's first tile; an upload's pixels in m_pixels)
+    };
+    std::vector<Step> m_steps;
+    std::vector<NativeDraw> m_planDraws;
+    std::vector<int32_t> m_planLists, m_planTiles;
+    std::vector<uint16_t> m_pixels;
+    void PlanDraws(SDL_GPUCommandBuffer *cmd, const NativeDraw *draws, uint32_t count);
+    void Flush(SDL_GPUCommandBuffer *cmd);
+    // (each aside with a work texture of its own and what that is behind by, traded with VRAM's: a look's frames,
+    // VRAM and an aside by turns each frame, then copy no more than their passes' areas)
+    SDL_GPUTexture *m_aside[kAsides] = {}, *m_asideWork[kAsides] = {};
+    std::vector<Rect> m_asideStale[kAsides];
+    bool m_asideStaleAll[kAsides] = {};
     int m_readW[kReads] = {}, m_readH[kReads] = {};
     std::vector<uint16_t> m_readPart;
     SDL_GPUTexture *m_draws = nullptr, *m_tiles = nullptr, *m_lists = nullptr;
     SDL_GPUGraphicsPipeline *m_listPipeline = nullptr;
     bool m_journal[kJournals] = {};
     std::vector<Rect> m_kept[kJournals];
-    std::vector<int32_t> m_tileRuns, m_listData, m_drawData;
     std::vector<uint32_t> m_counts;
 
     void Keep(SDL_GPUCommandBuffer *cmd, const Rect &area);
-    void RunDraws(SDL_GPUCommandBuffer *cmd, const NativeDraw *draws, uint32_t count);
 };
 
 } // namespace spelunk
