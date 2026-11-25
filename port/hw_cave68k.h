@@ -6,6 +6,7 @@
 #pragma once
 
 #include "../machine/cave68k.h"
+#include "../runtime/board_settings.h"
 #include "../runtime/game.h"
 #include "../runtime/moments.h"
 #include "../runtime/state.h"
@@ -56,6 +57,13 @@ struct Hw {
         if (ThisGame().start) {
             ThisGame().start(b);
         }
+    }
+    // Where the game keeps its settings (runtime/board_settings.h): the 93C46 EEPROM
+    SettingsStore Store() {
+        SettingsStore store;
+        store.words = board->eeprom.words;
+        store.wordCount = sizeof(board->eeprom.words) / sizeof(board->eeprom.words[0]);
+        return store;
     }
     // The EEPROM (the game's settings and scores), kept in the saves folder
     uint8_t *Saved(size_t &size) {

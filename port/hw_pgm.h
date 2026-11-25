@@ -7,6 +7,7 @@
 #pragma once
 
 #include "../machine/pgm.h"
+#include "../runtime/board_settings.h"
 #include "../runtime/game.h"
 #include "../runtime/moments.h"
 #include "../runtime/state.h"
@@ -56,6 +57,14 @@ struct Hw {
         if (ThisGame().start) {
             ThisGame().start(b);
         }
+    }
+    // Where the game keeps its settings (runtime/board_settings.h): the battery-backed work RAM, at 800000
+    SettingsStore Store() {
+        SettingsStore store;
+        store.bytes = board->ram.data();
+        store.byteCount = board->ram.size();
+        store.ramBase = 0x800000;
+        return store;
     }
     // The battery-backed work RAM (the game's settings and scores), kept in the saves folder; written when it has
     // changed since it was last written

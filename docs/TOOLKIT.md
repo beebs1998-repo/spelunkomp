@@ -26,6 +26,40 @@ only what is its own.
 - **No added input lag** (docs/LAG.md): the controls are read at the moment the game reads them, and each frame is
   shown as soon as it is done.
 
+## The board's settings and autofire
+
+These boards have no DIP switches: each game keeps its settings (difficulty, lives, extends) where its test menu (F2)
+writes them, the EEPROM (the CV1000's RTC-9701, the 93C46 of Cave's 68000 board) or the PGM's battery RAM. A game's
+`game.cfg` declares those it offers on the **Board** page (under Game), in `runtime/board_settings.h`'s way, as
+cps2recomp's board options are declared:
+
+```
+board_option_1 = board_difficulty | Game difficulty | eeprom 4:8-9 | How hard the game is. | A (easy)=1 | B (normal)=0
+board_option_2 = board_ships | Ship stock | ram 801006.b | The ships a game starts with. | 1=3 | 2=4 | 3=0
+board_checksum = eeprom 1 = sum 2-7
+```
+
+Consecutive from 1. `where` is `eeprom W:low-high` (the EEPROM's word W, 0 to 255, bits low to high; a single bit
+`eeprom 4:2`, the whole word `eeprom 4`) or `ram ADDRESS.b:low-high` / `.w` (the battery RAM at the 68000's address,
+hex). A choice's value is as its bits hold it (decimal, or `0x` hex). The first choice, **As the board is set**, writes
+nothing; with every one there the board is as it was. `board_checksum` (several, between commas) recomputes a word the
+game checks as the 16-bit sum of others, after a setting is written.
+
+The settings are put in as the board is made (its power-on and Reset), before the game reads them; the saves folder's
+copy keeps the board's own values (the test menu's) in their place, so going back to As the board is set gives the
+board again. A store the game has never written (a CV1000's EEPROM on a new install: the game writes its own at its
+first power-on) has that first power-on run unseen first, on a board of its own. Online, the host's (the match is the
+host's board). A declaration that cannot be read stops the program and `--list-features`, which `tools/ci_smoke.sh`
+runs; it also checks every declaration is listed. Each game's were found by changing each setting in its test menu and
+reading back the EEPROM (the saves folder's `eeprom.bin`) or the battery RAM (`--dump-ram`).
+
+**Autofire** (the Controls page, every game): a choice for each of the game's buttons (game.cfg's `buttons`), Off or 30,
+20 or 15 presses a second of the board's frames (pressed one frame of two; two of three; two of four). It is put into
+the controls the game is given by the board's frame number, where the frame reads them (`Controls::Read`), so a
+replay of what was read, rewind and run-ahead have the same, and the practice point's replay too. Online each player's
+is sent in the hello or welcome and put in by both sides as each frame is run (port/netplay.h: `TheirFeatures`); the
+controls sent are as held. `--input-log FILE` writes the controls each frame was given, for checking it.
+
 ## More
 
 - [CAVE68K.md](CAVE68K.md) and [PGM.md](PGM.md): the 68000 board and the PGM.

@@ -38,6 +38,7 @@ Each needs its own arcade ROM set, one version of it: the launcher's page for th
 | Arcade monitor | Keep the board's pace | Off (the default): in full screen at an arcade mode one frame for each of the screen's refreshes, with a frame delay where the system says when it refreshes (Windows): each frame's controls read and its picture made as late before its refresh as the work allows, no added lag. On: the board's clock, as in a window. Online always the board's clock |
 | Arcade monitor | Compact menu | The in-game menu in small letters, its rows close together; on by itself on an arcade mode, where it is drawn on the board's own lines |
 | Sound | Sound filter | Softens the treble of what is played: Soft (from about 8 kHz) or Softer (about 5 kHz), a second-order low-pass on the sound as it is handed to the system only; the game, recordings and online play are as before. Each player's own online (port/sound_filter.h) |
+| Controls | Autofire | For each of the game's buttons: Off, or pressed and let go 30, 20 or 15 times a second while held (by the board's frames: every other frame, two of three, two of four), as a cabinet's autofire board. The same in a replay, rewind and run-ahead; online each player's own (docs/ONLINE.md) |
 | Controls | Run-ahead | Takes out the frames of lag the game itself has: the game plays the same, only the picture is ahead (docs/LAG.md) |
 | Controls | Input lag readout | The game's own frames from a press to the picture, what run-ahead takes off, and the port's own time |
 | Training mode | Practice point | The game kept as it is and brought back at once, as often as you like; a replay of your last attempt from it |
@@ -67,6 +68,44 @@ These rest on where each game keeps its stage, ships, bombs and the ship's safe 
 | Bombs never run out | The bombs filled again as used (a gauge kept full where the game has one in their place) | all |
 | Ships never run out | A ship lost is not counted (Mazinger Z: energy) | all |
 | Hit boxes | The ship's box, enemy bullets, enemies, ground enemies and the player's shots, each kind in a colour of its own or hidden | all |
+
+## The board's settings
+
+These boards have no DIP switches: each game keeps its settings in its EEPROM (the PGM's: its battery RAM) and changes
+them in its own test menu (F2). The **Board** page (under Game) has them, as the test menu does, each **As the board is
+set** unless chosen: a choice is put in as the board starts (and at Reset game) in place of the test menu's, and the
+board keeps its own, so As the board is set is the board again. Online, the host's. How each was found, and the
+declarations: docs/TOOLKIT.md.
+
+| Game | Its Board page |
+| --- | --- |
+| Air Gallet (`agallet`) | Difficulty, Hero counts, 1UP item appear point, Demonstration sound |
+| DoDonPachi (`ddonpach`) | Game difficulty, Extend, Hero counts, C button, Continue, Advertise sound |
+| DoDonPachi II: Bee Storm (`ddp2`) | Difficulty, Fighter life, Hidden stage limit, Continue, Demo sound |
+| DoDonPachi Dai-Ou-Jou (`ddpdoj`) | Difficulty, Extend, Ship stock, Rapid fire (shot C), Continue, Demo sound |
+| DoDonPachi Dai-Ou-Jou Black Label (`ddpdojblk`) | Difficulty, Extend, Ship stock, Rapid fire (shot C), Continue, Demo sound |
+| Dangun Feveron (`dfeveron`) | Game difficulty, Extend, Hero counts, C button, Continue, Advertise sound |
+| DonPachi (US 1.12) (`donpachi`) | Game difficulty, Extend, Hero counts, C button, Continue, Advertise sound |
+| DonPachi (`donpachij`) | Game difficulty, Extend, Hero counts, C button, Continue, Advertise sound |
+| Espgaluda (`espgal`) | Difficulty, Extend, Life counts, Full auto fire, Continue, Demo sound |
+| Espgaluda II (`espgal2`) | Difficulty, Extend, Life stock, Continue, Demo sound, Rank display |
+| ESP Ra.De. (`esprade`) | Game difficulty, Extend, Hero counts, Full auto, Continue, Advertise sound |
+| Mushihimesama Futari Ver 1.0 (`futari10`) | Difficulty, Ship stock, Continue, Demo sound, Rank display |
+| Mushihimesama Futari Ver 1.5 (`futari15`) | Difficulty, Ship stock, Continue, Demo sound, Rank display |
+| Guwange (`guwange`) | Game difficulty, Damage level, C button, Continue, Advertise sound |
+| Ibara (`ibara`) | Difficulty 1, Difficulty 2, Extend, Player counts, Continue play, Demo sound |
+| Ibara Kuro Black Label (`ibarablk`) | Difficulty, Extend, Player counts, Continue play, Demo sound |
+| Ketsui (`ket`) | Difficulty, Extend, Ship stock, Rapid fire (shot C), Continue, Demo sound, Rank display |
+| Mushihimesama Matsuri Ver 1.5 (`matsuri15`) | Difficulty, Ship stock, Rapid fire (shot C), Continue, Demo sound, Rank display |
+| Mazinger Z (`mazinger`) | Difficulty, Life gauge, Demonstration sound |
+| Muchi Muchi Pork! (`mmpork`) | Difficulty 1, Difficulty 2, Extend, Player counts, Continue play, Demo sound, Ranking save |
+| Mushihimesama (`mushisam`) | Difficulty, Ship stock, Rapid fire (shot C), Continue, Demo sound, Rank display |
+| Pink Sweets: Ibara Sorekara (`pinkswts`) | Difficulty 1, Difficulty 2, Extend, Player counts, Continue play, Demo sound, Ranking save |
+
+Not yet: the later CV1000 games (Mushihimesama Futari Black Label and its Another Ver, Deathsmiles and MegaBlack
+Label, DoDonPachi Dai-Fukkatsu Ver 1.0, 1.5 and Black Label, Akai Katana, SaiDaiOuJou), which write no settings to the
+EEPROM: they keep them in the NAND flash (Deathsmiles MegaBlack Label's first power-on programs a block of it), which
+the saves folder does not keep yet.
 
 ## Alternative modes
 

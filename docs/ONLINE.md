@@ -65,13 +65,18 @@ it); over the internet, the host's public address with UDP port 7845 forwarded t
   settings have it (the Display page: the screen's turn, the scaling), and hears it as theirs have it (the Sound
   page's Sound filter).
 - **The host's game is the match's**: the match begins at the board's power-on with the host's EEPROM (the game's own
-  settings: difficulty, lives, its test menu's choices) and the host's Game page (free play, the CV1000's and the PGM's slowdown).
+  settings: difficulty, lives, its test menu's choices, with the host's Board page put in over them) and the host's Game
+  page (free play, the CV1000's and the PGM's slowdown).
   With the Game page's **Start** at **Straight to the title** (as it is unless the host changed it), both sides run
   the boot unseen, with no controls, from that same power-on before the match's first frame, so the match begins at
   the title. The two are alike because they run the same frames from the same state with the same (no) controls; the
   game is sent at power-on, while a CV1000's VRAM is still empty (74 KB), not at the title (some 11 MB). Each side's
   controls go on being sent while it runs the boot, so a slower machine's few seconds of it aren't taken for a drop.
   The other player's own EEPROM is left as it was: nothing of the match is written into it.
+- **Autofire is each player's own** (the Controls page): each side tells the other its own in the hello or the
+  welcome, sends its controls as held, and both sides put each player's autofire in the same way, by the board's frame
+  number, as the frame is run (rollback's frames too). Held buttons stay held in what is sent, so the other side's
+  guesses of them stay right and autofire costs no rollbacks.
 - **Off in a match, on both sides**: the training tools that change the game (out of harm, endless bombs and ships, a
   start at a stage or the boss, the practice point and its replay, rewind, fast forward), run-ahead and the input lag
   readout, the in-game menu, save states, pause and the speed. What is only drawn over the picture stays each player's

@@ -92,9 +92,9 @@ private:
 class Netplay {
 public:
     static constexpr int kDefaultPort = 7845;
-    // The packets' layout (2: the host's state sent at the start); two copies must have the same to play, and the
-    // lobby shows only matches of this one (the launcher asks with it too)
-    static constexpr int kProtocol = 1;
+    // The packets' layout (2: each player's own autofire in the hello and the welcome); two copies must have the same
+    // to play, and the lobby shows only matches of this one (the launcher asks with it too)
+    static constexpr int kProtocol = 2;
     // The number said to the introduction service for kProtocol, which lists a lobby's matches and a waiting room's
     // players by it: this toolkit's own (4000 and up; the CPS-3 toolkit's are 3000 and up, cps2recomp's under 100), so that its
     // lobby and waiting room are its games' alone, though the service is the same
@@ -196,6 +196,14 @@ public:
     void Leave();
     // A line on how it is going (ping, rollbacks), every few seconds, to stderr
     void Report(bool last = false);
+    // The features each player has their own that change the controls the game is given (autofire, the Controls page:
+    // runtime/board_settings.h): this side's are sent in the hello or the welcome, and the other side's come in it, so
+    // both sides put each player's in the same way on the same frames (NetGame::Step's controls are as held). Theirs:
+    // every feature's value, AllFeatures' order, 0 but these
+    static bool PlayersOwn(const std::string &featureName);
+    const std::vector<int> &TheirFeatures() const {
+        return theirFeatures;
+    }
     // The two players' names (--net-name; the other's from the hello or the welcome), as the screen shows them: at
     // most kNameMost letters ("" for none given)
     static constexpr size_t kNameMost = 16;
@@ -299,6 +307,9 @@ private:
     uint64_t random = 0x2545F4914F6CDD1Dull;
 
     std::string theirName; // (the other player's, as it came)
+    std::vector<int> theirFeatures; // (PlayersOwn: the other player's, as they came)
+    std::string OwnFeaturesText(NetGame &game) const;
+    void TakeTheirFeatures(const std::string &text);
     // (the chat: the lines said that the other side hasn't said it has, by number, and when they were last sent; the
     // number of lines heard, all before it, and those not taken yet)
     std::deque<std::pair<uint32_t, std::string>> unheard;

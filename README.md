@@ -108,6 +108,8 @@ The games' names are their owners' trademarks.
   blitter, and the PGM's video memory, so the busy scenes slow down where a board does ([Accuracy](#accuracy)).
 - **Slow motion and frame advance** for study: down to 1/8 speed, or a frame at a time, the game's frames unchanged.
 - **Attract mode**: the game's own show on a loop, as a cabinet nobody is playing.
+- **The board's settings and autofire**: a game's own test-menu settings (difficulty, lives, extends) on a Board page,
+  without the test menu, and autofire for each button at 30, 20 or 15 shots a second, online too.
 - Free play, straight to the title, save states, faster play (up to 8x).
 
 <p align="center">

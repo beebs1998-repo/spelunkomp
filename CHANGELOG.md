@@ -9,6 +9,14 @@ Versions follow [Semantic Versioning](https://semver.org/).
   gamepad Automatic, Player 1, Player 2 or Not used (kept in settings.ini's `[controllers]`); the rest go to the
   players without one in the order they were connected, as before. A Steam Deck's own controls can be Not used, so
   two pads plugged into it play each other. Every connected gamepad is now opened, not only the first two.
+- **The board's settings and autofire** (#56). A **Board** page (under Game, in the menu and the launcher) has each
+  game's own test-menu settings: difficulty, lives, extends, continues, the board's own full-auto button and the like,
+  put into the board's EEPROM (the PGM's battery RAM) as the board starts, the game's checksum made again where it has
+  one. **As the board is set** (every one, to begin with) changes nothing, and the board's own are kept in the saves
+  folder. In 22 of the 31 sets: every one of Cave's 68000 board and the PGM, and the CV1000 games that keep their settings in the EEPROM (the later ones keep them in the NAND flash, not yet) (docs/FEATURES.md). Online, the host's. **Autofire** for each button on the Controls page: 30, 20
+  or 15 presses a second while held, by the board's frame number, so rollback, replays, rewind and run-ahead have the
+  same; online each player's own, told to the other side as the match begins (online protocol 2: both players need
+  this version).
 - **Gems and energy kept full** (#55): two Training mode switches. Espgaluda II's "Gems kept full" holds the green
   gems at 500, the most the game allows, so Kakusei lasts as long as you want. Akai Katana's "Energy kept full" holds
   the energy gauge that Phantom form spends at the most the life bar leaves it. Akai Katana's Controllers page now

@@ -20,6 +20,12 @@ for cfg in games/*/game.cfg; do
     echo "$features" | grep "^shader$(printf '\t')" | cut -f8 |
         grep -qx 'off|crt|crt-lottes|crt-royale|crt-guest|crt-light|scanlines-light|scanlines-strong|scanlines-ossc|scanlines-dark|xbrz|scalefx|your-own|crt-newpixie' ||
         { echo "$id: the Shader's old numbers are not those of 0.1.0-beta.2 and 0.2.0-beta.1"; exit 1; }
+    # (each board option game.cfg declares is on the Board page, and every game has autofire for its buttons:
+    # runtime/board_settings.h; a declaration that cannot be read stops --list-features)
+    declared=$(grep -c '^board_option_' "$cfg" || true)
+    listed=$(echo "$features" | grep -c "^[^$(printf '\t')]*$(printf '\t')Board$(printf '\t')" || true)
+    [ "$declared" = "$listed" ] || { echo "$id: game.cfg declares $declared board options, the program lists $listed"; exit 1; }
+    echo "$features" | grep -q "^autofire_1$(printf '\t')" || { echo "$id: the program's features have no autofire_1"; exit 1; }
     started=$((started + 1))
 done
 [ "$started" -gt 0 ] || { echo "no game program built (make, or make games)"; exit 1; }
