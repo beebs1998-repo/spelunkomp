@@ -293,6 +293,7 @@ struct Hw {
         board->KeepNow();
         if (useGpu) {
             gpu.BeginJournal();
+            gpu.AheadWork(true);
         }
     }
     void AheadFrame() {
@@ -304,9 +305,10 @@ struct Hw {
     }
     void EndAhead() {
         if (useGpu) {
+            gpu.AheadWork(false);
             gpu.Rollback();
         }
-        board->PutBack();
+        board->PutBack(0, false);
     }
     // The input lag readout's looks (port/main.cpp), spread over the frames shown: the board as it is now set aside
     // twice (LookKeep: the moment both of a look's runs start from), then, a frame at a time between the game's own,

@@ -214,12 +214,18 @@ struct Hw {
     }
     void BeginAhead() {
         board->KeepNow();
+        if (useGpu) {
+            gpu.AheadWork(true);
+        }
     }
     void AheadFrame() {
         board->RunFrame();
         Render();
     }
     void EndAhead() {
+        if (useGpu) {
+            gpu.AheadWork(false);
+        }
         board->PutBack();
     }
     // The input lag readout's looks (port/main.cpp), spread over the frames shown: the board as it is now set aside

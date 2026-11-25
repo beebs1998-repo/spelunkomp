@@ -797,6 +797,22 @@ struct Sh3Paths {
             generation = 1;
         }
     }
+    // Main RAM put back as it was when `keptClock` and `keptGeneration` were read (run-ahead's frames, online play's
+    // rollback): a block written since then holds other bytes now, so a path over one is found again; the others are
+    // the same bytes, and their paths are kept. (A Forget meanwhile, as at a clock's wrap, leaves the times written
+    // no longer comparable: then every path is found again)
+    void PutBack(uint32_t keptClock, uint32_t keptGeneration) {
+        if (generation != keptGeneration || clock == 0xFFFFFFFFu) {
+            Forget();
+            return;
+        }
+        const uint32_t now = ++clock;
+        for (uint32_t &w : written) {
+            if (w > keptClock) {
+                w = now;
+            }
+        }
+    }
     // A write the CPU makes: a path over it is found again
     void Written(uint32_t a, uint32_t bytes) {
         if (!IsRam(a)) {

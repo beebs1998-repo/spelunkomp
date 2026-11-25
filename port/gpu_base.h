@@ -42,6 +42,12 @@ public:
     // Each present waits for the screen's refresh (on: full screen at an arcade monitor's mode, paced by the screen,
     // recomp-common/arcade_screen.h), or (off, as the window is given) is shown the moment it is done
     void SetVsync(bool on);
+    // Run-ahead's frames (port/hw_*.h's BeginAhead to EndAhead): their drawing is not held by SubmitWork's count. They
+    // are a few to each present (run-ahead's 1 to 4), never pile up, and before they come the frame's own drawing was
+    // waited for at most as a present waits; held, every frame from the fourth on waited for the GPU (#46)
+    void AheadWork(bool on) {
+        m_aheadWork = on;
+    }
 
 protected:
     GpuBase() = default;
@@ -126,6 +132,7 @@ private:
     int m_frameAt = 0;
     SDL_GPUFence *m_workFence = nullptr; // (SubmitWork's, while no present comes)
     int m_workSincePresent = 0;
+    bool m_aheadWork = false; // (AheadWork's)
     uint32_t m_uploadAt = 0; // (the upload buffer's next free byte this frame; past its end: cycled at the next map)
     void EndFrame(SDL_GPUCommandBuffer *cmd);
     SDL_GPUTexture *m_picture = nullptr, *m_overlay = nullptr, *m_layer = nullptr;

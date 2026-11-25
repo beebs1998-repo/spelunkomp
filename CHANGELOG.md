@@ -5,6 +5,12 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **Run-ahead on the CV1000 costs a little less** (#46). Run-ahead runs the whole board again for each frame it looks
+  ahead, so each frame of it costs about as much as the game itself; with Slowdown as the board on, that is too much
+  for run-ahead 2 on many machines. The game's put-back no longer forgets the slowdown model's worked-out paths nor
+  copies the 16 MB of main RAM back (SaiDaiOuJou), and run-ahead's frames no longer wait for the graphics chip from
+  the fourth on. The game and the picture are the same frame for frame.
+
 ## 0.3.0-beta.1
 
 A much lighter CV1000 (slower machines now hold 60), touch controls that follow the finger on Android, 99 save slots,
