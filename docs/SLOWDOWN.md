@@ -525,6 +525,13 @@ brought up once at the end as the last read left them. Only in native mode: the 
 tools/check.sh compares the translations with, runs every turn, so check.sh compares the skip with the turns run too.
 `SPELUNK_NO_POLL_SKIP=1` runs every turn.
 
+With the slowdown off the timing model is not there to call, and the translated wait turns in its own block until its
+stop: on the Steam Deck, with the slowdown off, Muchi Muchi Pork!'s frame spent 18% of its time there. The dispatcher
+works those turns out before it runs the block (SH3::WaitAhead, runtime/dispatch.cpp): without the timing model a turn
+costs its four instructions' cycles and nothing else, and once the register the loop loads holds the word it reads
+(each turn leaves it so), every turn is alike. The turns before the block's last are counted into the cycles, and the
+block runs the last itself, so it leaves the registers, T and the cycles as the turns would.
+
 The shadow build (tools/shadow/) runs every skip both ways. It works the turns out, puts everything back, runs the
 same turns through the interpreter with both models at every event, and compares registers, cycles, T, the timers and
 the model's every field. The first difference stops the run; the run goes on from the turns run. Muchi Muchi Pork!'s
