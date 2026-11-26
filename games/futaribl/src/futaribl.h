@@ -42,4 +42,11 @@ constexpr int kShotsPassKinds[] = {1, 21};
 // (the ship's box is the same out of harm: nothing put in its place)
 constexpr uint32_t kSafeReach = 0, kShipSizes = 0, kShipType = 0, kSizesAt = 0, kSizesMode = 0, kSizesModeAt = 0;
 
+// --- What the board's code unlocks (found 2026-11-25 by entering it after a coin, 1P holding B, 2P: B, B, down, down,
+// C, up, A, C, left, A, right, B, and comparing RAM with a run without) ---
+// Spiritual Larsa after God mode's Dragon Emperion even with a ship lost: a byte, 1 once the code is in (beside the
+// word the code's presses are counted in, 12 when whole: the same record as Ver 1.0's Ultra code, whose byte alone
+// unlocks Ultra). What it does was not played to: God mode's last boss
+constexpr uint32_t kLarsaUnlocked = 0x0C7046B3u;
+
 } // namespace spelunk::futaribl

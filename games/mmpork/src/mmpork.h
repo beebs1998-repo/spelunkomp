@@ -86,4 +86,11 @@ constexpr uint32_t kShots = 0x0C513524u, kShotsApart = 0xC00, kShotCount = 0x0C4
 constexpr uint32_t kOptionsOn = 0x0C4C350Cu, kOptionCount = 0x0C4C3514u, kOptionOn = 0x0C4C12A0u;
 constexpr uint32_t kOptionShots = 0x0C48591Cu, kOptionShotCount = 0x0C48A174u;
 
+// --- What the board's codes unlock (found 2026-11-25: each code entered on the title with a credit in, 1P: Manpuku
+// right, left, left, B, B, B, down, left, up, A, B, right, C; Harahara A, B, right, right, C, C, left, B, left, A, A,
+// up, down. The routine at 0x0C068A38 packs these into the record at 0x0C482260 (bytes +0x14, +0x13) from a table at
+// 0x0C0E0690, which names the game's own: set alone, holding up (Manpuku) or down (Harahara) as Start is pressed
+// begins that mode, and without the hold a game is as ever) ---
+constexpr uint32_t kManpukuUnlocked = 0x0C4EAC43u, kHaraharaUnlocked = 0x0C4824AFu; // (the low bytes of two longs: 1)
+
 } // namespace spelunk::mmpork
