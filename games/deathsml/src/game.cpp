@@ -132,6 +132,8 @@ const Game &ThisGame() {
         f.beginWaitsFlown = true; // (Begin at the stage: through the map of stages)
         f.hitBoxes = HitBoxes;
         f.hitKinds |= 1u << HitBox::Ground | 1u << HitBox::Shot;
+        f.unlocks = {{deathsml::kFollettUnlocked}, {deathsml::kRosaUnlocked}, {deathsml::kCanyonUnlocked}};
+        f.unlockWords = "follett, Rosa and the canyon's extra stage";
         return shmup::MakeGame(deathsml::kCredits, f);
     }();
     return game;

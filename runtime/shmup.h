@@ -145,6 +145,17 @@ struct Facts {
     // begins from a map of stages after the new game (Deathsmiles), the same until shipState says the ship is flown
     uint32_t flownWord = 0;
     bool beginWaitsFlown = false;
+    // Hidden content the board's own codes unlock (Deathsmiles' Follett, Rosa and canyon stage; DoDonPachi
+    // Dai-Fukkatsu's Strong Style; Futari 1.0's Ultra): the bytes of RAM a code sets as it is entered, and what it sets
+    // them to, held there while "Unlock hidden content" is on (the Game page's; none: the feature is not offered).
+    // Off, the game is as the board has it, and its codes work as ever. unlockWords: what is unlocked, for the
+    // feature's description
+    struct Unlock {
+        uint32_t address;
+        uint8_t value = 1;
+    };
+    std::vector<Unlock> unlocks;
+    std::string unlockWords;
     // The hit boxes as the game tests them (none: the feature is not offered): read as the board is after a frame;
     // or, where the game keeps them only while it tests them (the CV1000 games build them anew each frame), read at the
     // entry of its hit test (hitTest: the routine, hooked; the boxes read there are the frame's)

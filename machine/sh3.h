@@ -461,7 +461,16 @@ public:
         Translation *next = nullptr; // (the same RAM run at another segment's address)
         uint32 epoch = UINT32_MAX, epoch2 = UINT32_MAX;
         bool valid = false;
+        // (the frame's wait with the timing model off, WaitAhead: -1 not looked at yet, 0 not the wait, 1 the wait,
+        // with its registers and a turn's cycles)
+        sint8 wait = -1;
+        uint8 n0 = 0, m0 = 0, n1 = 0, m1 = 0, m3 = 0;
+        uint32 waitCost = 0;
     };
+    // The frame's wait with the timing model off (docs/SLOWDOWN.md, "The poll loop"): the turns before the block's last
+    // worked out at once, the block running that one itself
+    void WaitAhead(Translation &t);
+    uint64 waitSkips = 0, waitTurnsSkipped = 0;
 
 private:
     std::unordered_map<uint32, std::pair<NativeCall, void *>> m_nativeCalls;

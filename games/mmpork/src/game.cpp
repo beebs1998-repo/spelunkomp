@@ -124,6 +124,8 @@ const Game &ThisGame() {
         f.hitBoxes = HitBoxes;
         f.hitTest = mmpork::kHitTest;
         f.hitKinds |= 1u << HitBox::Ground | 1u << HitBox::Shot;
+        f.unlocks = {{mmpork::kManpukuUnlocked}, {mmpork::kHaraharaUnlocked}};
+        f.unlockWords = "Manpuku mode (hold up as Start is pressed) and Harahara mode (hold down)";
         Game g = shmup::MakeGame(mmpork::kCredits, f);
         // (the scoring readouts: the lard meter as a number, which the game shows only as its bar)
         g.readouts = {{"LARD", [](const Board &board) {

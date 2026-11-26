@@ -156,6 +156,8 @@ const Game &ThisGame() {
         f.shipState = futariblj::kShipState;
         f.hitBoxes = BoxesNow;
         f.hitKinds |= 1u << HitBox::Ground | 1u << HitBox::Shot;
+        f.unlocks = {{futariblj::kLarsaUnlocked}};
+        f.unlockWords = "Spiritual Larsa after God mode's Dragon Emperion, even with a ship lost";
         return shmup::MakeGame(futariblj::kCredits, f);
     }();
     return game;

@@ -68,6 +68,7 @@ These rest on where each game keeps its stage, ships, bombs and the ship's safe 
 | Bombs never run out | The bombs filled again as used (a gauge kept full where the game has one in their place) | all |
 | Ships never run out | A ship lost is not counted (Mazinger Z: energy) | all |
 | Hit boxes | The ship's box, enemy bullets, enemies, ground enemies and the player's shots, each kind in a colour of its own or hidden | all |
+| Unlock hidden content | (the Game page) What the board's own codes unlock, choosable without them: Deathsmiles' Follett, Rosa and canyon stage; DoDonPachi Dai-Fukkatsu Ver 1.5's Strong Style, Ver 1.0's Type-B ship and Strong Style; Mushihimesama Futari Ver 1.0's Ultra mode; Futari Black Label's Spiritual Larsa after God mode's last boss, even with a ship lost; Muchi Muchi Pork's Manpuku and Harahara modes (up or down held as Start is pressed). Off: as the board, where the codes still work. Held in RAM; Futari 1.0 copies its Ultra into the EEPROM as a game is played, as it does after its code, so the board keeps it unlocked from then on (as a real one does; the saves folder's eeprom.bin holds it). Online, the host's | Deathsmiles, Dai-Fukkatsu 1.0 and 1.5, Futari 1.0 and Black Label (both sets), Muchi Muchi Pork |
 
 ## The board's settings
 

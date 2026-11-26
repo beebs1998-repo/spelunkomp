@@ -16,7 +16,10 @@
 #        boss; full adds every stage begun, made-up play, the training tools and online rollback),
 #        SETS="mmpork ddpsdoj" (default: every CV1000 set), WORK_DIR=work (each set's translated code, <id>/gen),
 #        REF=origin/main, AUTO_FRAMES=200000, STAGE_FRAMES=12000, BOSS_FRAMES (quick 3000, full 10000),
-#        NICE=10, KEEP_BUILDS=1 (keep each build folder: about 150 MB each)
+#        NICE=10, KEEP_BUILDS=1 (keep each build folder: about 150 MB each), REBUILD=1 (build the programs again)
+#        or 0 (run those in OUT/bin as they are). OUT/bin/STAMP says what they were built from (the tree's commit and
+#        its changes, REF's, WORK_DIR, the build's flags and tools); programs with another stamp are built again, and
+#        programs with none stop the check
 # About 400,000 frames a set in the full tier: one night on 8 cores for all 18 sets. tools/shadow/quick.sh is the
 # quick tier.
 set -u
@@ -47,6 +50,40 @@ if [ ! -d "$REFSRC" ]; then
     git -C "$ROOT" worktree add --detach "$REFSRC" "$REF" > /dev/null 2>&1 || { echo "error: cannot check out $REF into $REFSRC"; exit 2; }
 fi
 git -C "$REFSRC" checkout --detach -q "$REF" || { echo "error: $REF"; exit 2; }
+# (what OUT/bin was built from: this tree's commit, and a hash of its changes not committed; REF's commit; WORK_DIR; and
+# what the builds are made with. Programs built from another tree, REF or translations are never run: a stamp that
+# differs has them built again, and programs with no stamp at all stop the check. REBUILD=1 builds them again whatever
+# the stamp says; REBUILD=0 runs the programs there as they are, saying so)
+SHADOW_FLAGS="-G Ninja -DCMAKE_BUILD_TYPE=Release -DSHADOW_TIMING=ON (shadow) / none (reference); $(cmake --version | head -1); $(c++ --version 2>/dev/null | head -1)"
+dirty=$(git -C "$ROOT" diff HEAD -- . ':!work' ':!build' 2>/dev/null | shasum -a 256 2>/dev/null | cut -c1-12)
+[ "$dirty" = "$(printf '' | shasum -a 256 | cut -c1-12)" ] && dirty=none
+STAMP="tree $(git -C "$ROOT" rev-parse HEAD) (changes not committed: $dirty)
+ref $REF = $(git -C "$REFSRC" rev-parse HEAD)
+work $WORK_DIR
+flags $(printf '%s' "$SHADOW_FLAGS" | shasum -a 256 | cut -c1-12): $SHADOW_FLAGS"
+echo "stamp:"
+echo "$STAMP" | sed 's/^/  /'
+if ls "$OUT/bin/"*-shadow "$OUT/bin/"*-ref > /dev/null 2>&1; then
+    if [ "${REBUILD:-}" = 0 ]; then
+        same="their stamp is this one"
+        [ -f "$OUT/bin/STAMP" ] || same="they have no stamp"
+        [ -f "$OUT/bin/STAMP" ] && [ "$(cat "$OUT/bin/STAMP")" != "$STAMP" ] && same="THEIR STAMP DIFFERS: $(tr '\n' ';' < "$OUT/bin/STAMP")"
+        echo "REBUILD=0: the programs in $OUT/bin are run as they are ($same)"
+    elif [ "${REBUILD:-}" = 1 ]; then
+        echo "REBUILD=1: building the programs in $OUT/bin again"
+        rm -rf "$OUT/bin" "$OUT/games"
+        mkdir -p "$OUT/bin"
+    elif [ ! -f "$OUT/bin/STAMP" ]; then
+        echo "error: $OUT/bin holds programs with no stamp (built by an older full.sh, from what is not known): delete them, or REBUILD=1 to build them again, or REBUILD=0 to run them as they are"
+        exit 2
+    elif [ "$(cat "$OUT/bin/STAMP")" != "$STAMP" ]; then
+        echo "the programs in $OUT/bin were built from something else: building them again. Their stamp:"
+        sed 's/^/  /' "$OUT/bin/STAMP"
+        rm -rf "$OUT/bin" "$OUT/games"
+        mkdir -p "$OUT/bin"
+    fi
+fi
+[ "${REBUILD:-}" = 0 ] || printf '%s\n' "$STAMP" > "$OUT/bin/STAMP"
 build() { # SOURCE DIR TARGETS... (the rest: CMake's arguments after --)
     src=$1 dir=$2
     shift 2
@@ -152,5 +189,7 @@ if [ "$got" -lt "$expected" ]; then
 fi
 echo
 [ $skipped = 0 ] || echo "$skipped set(s) skipped: no ROM set"
+echo "the programs run:"
+sed 's/^/  /' "$OUT/bin/STAMP" 2>/dev/null || echo "  (no stamp: REBUILD=0)"
 if [ $fail = 0 ]; then echo "shadow check passed: every run the same as the reference"; else echo "SHADOW CHECK FAILED"; fi
 exit $fail

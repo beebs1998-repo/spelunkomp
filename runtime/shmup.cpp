@@ -439,6 +439,16 @@ Game MakeGame(uint32_t creditsAddress, const Facts &facts) {
     credits = creditsAddress;
     Game g;
     g.features = {arcade::FreePlayFeature()};
+    // (the hidden content, beside free play on the Game page: online, the host's choice is the match's)
+    static size_t first;
+    first = 1;
+    if (!kept.unlocks.empty()) {
+        g.features.push_back({"unlock_hidden", "Game", "Unlock hidden content",
+                              "Unlocked without the board's secret code: " + kept.unlockWords + ". Off: as the board, where the "
+                              "code unlocks it.",
+                              0, {}});
+        first = 2;
+    }
     const std::vector<recomp::FeatureInfo> training = Features(kept);
     g.features.insert(g.features.end(), training.begin(), training.end());
     g.beforeFrame = [](Board &board, const std::vector<int> &values) {
@@ -447,10 +457,16 @@ Game MakeGame(uint32_t creditsAddress, const Facts &facts) {
 #else
         arcade::KeepCredit(board, credits, values[0] != 0);
 #endif
-        BeforeFrame(board, kept, &values[1]);
+        // (as the code would have set them; not through the board's start-up, whose memory check owns RAM)
+        if (first == 2 && values[1] && board.frame >= 1200) {
+            for (const Facts::Unlock &u : kept.unlocks) {
+                Write(board, u.address, u.value, 1);
+            }
+        }
+        BeforeFrame(board, kept, &values[first]);
     };
     g.start = [](Board &board) { Install(board, kept); };
-    g.unseen = [](Board &board, const std::vector<int> &values) { return Unseen(board, kept, &values[1]); };
+    g.unseen = [](Board &board, const std::vector<int> &values) { return Unseen(board, kept, &values[first]); };
     g.beginNow = [] {
         g_begin = true;
         g_stageBegun = g_sawNotFlown = false;
