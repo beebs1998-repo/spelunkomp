@@ -5,6 +5,17 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+## 0.4.0-beta.1
+
+Run-ahead that costs about one frame instead of two or three, so slowdown as the board and run-ahead fit on a Steam
+Deck together; a macOS build laid out by profile, faster again; each game's board settings and autofire per button;
+hidden content unlocked by a switch; a choice of which controller is which player; the menu turned with the picture;
+and Espgaluda II's gems and Akai Katana's energy kept full in training.
+
+- **The macOS app is built with profile-guided optimisation** (`PGO=1`, tools/release/pgo.sh): every game is played
+  first with no window (stage 1 with either renderer and run-ahead, the boss with the slowdown on and off) and the
+  code laid out by where their time goes. The same code, the same frames and hashes; SaiDaiOuJou's busiest scene about
+  11-16% faster on an Apple M-series. Linux, Windows and Android are built as before.
 - **Unlock hidden content**, a switch on the Game page: what the arcade boards' secret codes unlock can be chosen
   without entering them. Deathsmiles' Follett, Rosa and the canyon's extra stage; DoDonPachi Dai-Fukkatsu Ver 1.5's
   Strong Style, and Ver 1.0's Type-B ship and Strong Style; Mushihimesama Futari Ver 1.0's Ultra mode; Futari Black
