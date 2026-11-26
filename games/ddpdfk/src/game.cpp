@@ -139,6 +139,8 @@ const Game &ThisGame() {
         f.shipState = ddpdfk::kShipState;
         f.hitBoxes = BoxesNow;
         f.hitKinds |= 1u << HitBox::Ground | 1u << HitBox::Shot;
+        f.unlocks = {{ddpdfk::kStrongUnlocked}};
+        f.unlockWords = "Strong Style";
         return shmup::MakeGame(ddpdfk::kCredits, f);
     }();
     return game;

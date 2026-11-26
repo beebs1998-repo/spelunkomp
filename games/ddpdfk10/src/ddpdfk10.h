@@ -70,4 +70,10 @@ constexpr uint8_t kNotShot = 0x80, kNotShotByKind4 = 0x02;
 // followed here)
 constexpr uint32_t kSafeReach = 24, kShipSizes = 0x0C47715Cu, kShipType = 0xC8, kSizesAt = 12, kSizesMode = 0, kSizesModeAt = 0;
 
+// --- What the board's codes unlock (found 2026-11-25 by entering each after a coin and comparing RAM with a run
+// without; each byte set alone puts its part on the select screens) ---
+// The Type-B ship (2P holding A, B and C, 1P: D, A, D, C, B, D, up, B, B, left, down, right, C, D, B, A, right,
+// right, A, D) and Strong Style (2P holding A, B and D, 1P: Ver 1.5's code), a byte each, 1 when unlocked
+constexpr uint32_t kTypeBUnlocked = 0x0C5C0ADCu, kStrongUnlocked = 0x0C5C0ADDu;
+
 } // namespace spelunk::ddpdfk10

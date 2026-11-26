@@ -77,4 +77,11 @@ constexpr int kShotsPassKinds[] = {1, 21};
 // (the ship's box is the same out of harm: nothing put in its place)
 constexpr uint32_t kSafeReach = 0, kShipSizes = 0, kShipType = 0, kSizesAt = 0, kSizesMode = 0, kSizesModeAt = 0;
 
+// --- What the board's code unlocks (found 2026-11-25 by entering it, 2P holding A, B and C after a coin, 1P: right,
+// C, B, up, down, left, B, A, C, A, and comparing RAM with a run without) ---
+// Ultra mode: a byte, 1 when unlocked (set alone, Ultra is on the mode select). The code also writes it to the
+// EEPROM (word 6's low byte), which the board reads back at power on; this is the game's copy in RAM, which the game
+// writes back to the EEPROM as a game is played (so held at 1, the board keeps Ultra unlocked from then on, as after the code)
+constexpr uint32_t kUltraUnlocked = 0x0C707CAFu;
+
 } // namespace spelunk::futari10

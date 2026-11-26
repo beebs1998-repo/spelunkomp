@@ -7,7 +7,7 @@
 //   --cpu interpreter|blocks|native    how the game's code is run (native: the translations linked in)
 //   --shot FRAME:file.png              the picture after that frame, stood up as the player sees it (--raw-shots: as
 //                                      the board draws it, 320 x 240)
-//   --dump-ram FRAME:file              main RAM after that frame
+//   --dump-ram FRAME:file              main RAM after that frame (and the EEPROM in file.eeprom)
 //   --press FRAME:COUNT:BITS[:PLAYER]  a player's inputs (machine/cv1000.h's kIn bits) held for COUNT frames
 //   --system FRAME:COUNT:BITS          the coin, start and service switches (kSys bits)
 //   --poke FROM:ADDRESS:VALUE[:BYTES]  a value written into main RAM before every frame from FROM on (finding what a
@@ -446,6 +446,14 @@ int main(int argc, char **argv) {
         if (const auto it = dumps.find(done); it != dumps.end()) {
             if (FILE *out = fopen(it->second.c_str(), "wb")) {
                 fwrite(board->ram.data(), 1, board->boardD ? 0x1000000 : 0x800000, out);
+                fclose(out);
+            }
+            // (and the EEPROM beside it, its 256 words big-endian as the game reads them: <dump>.eeprom)
+            if (FILE *out = fopen((it->second + ".eeprom").c_str(), "wb")) {
+                for (const uint16_t word : board->rtc.eeprom) {
+                    fputc(word >> 8, out);
+                    fputc(word & 0xFF, out);
+                }
                 fclose(out);
             }
         }
