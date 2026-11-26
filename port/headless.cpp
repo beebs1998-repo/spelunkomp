@@ -496,6 +496,10 @@ int main(int argc, char **argv) {
     if (!recordPath.empty()) {
         board->cpu.SaveRecording(recordPath.c_str());
     }
+    if (board->cpu.waitSkips) {
+        fprintf(stderr, "frame waits (timing off): %llu turns worked out in %llu skips\n",
+                static_cast<unsigned long long>(board->cpu.waitTurnsSkipped), static_cast<unsigned long long>(board->cpu.waitSkips));
+    }
     if (board->cpu.pollSkips) {
         fprintf(stderr, "poll loops: %llu turns worked out in %llu skips\n", static_cast<unsigned long long>(board->cpu.pollTurnsSkipped),
                 static_cast<unsigned long long>(board->cpu.pollSkips));

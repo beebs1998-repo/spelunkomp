@@ -205,6 +205,65 @@ SH3::Translation *SH3::Lookup(uint32 pc) {
     return nullptr;
 }
 
+// The frame's wait with the timing model off: `sub Rm0,Rn0; cmp/hi Rm1,Rn1; bt/s back; mov.l @Rm3,Rn0` reading a word of
+// main RAM (PollTurn's first shape), its translation entered at its first instruction. Without the timing model a
+// turn costs its four instructions' cycles (s_cycles, as the translation and the interpreter count them) and nothing
+// else, and nothing writes the word while the loop turns (the CPU writes nothing in it; an interrupt, or the board's
+// event, is a stop the block's test sees after a turn). So once Rn0 holds the word, as each turn leaves it, every turn
+// is alike: the block would turn until its stop, and the turns before its last are worked out here (the cycles; Rn0
+// and T stay as they are), the block running the last itself. Native mode only, as the translations are
+void SH3::WaitAhead(Translation &t) {
+    const uint32 head = t.block->address;
+    if (t.wait < 0) {
+        const uint16 op0 = Fetch(head), op1 = Fetch(head + 2), op2 = Fetch(head + 4), op3 = Fetch(head + 6);
+        t.wait = 0;
+        if ((op0 & 0xF00F) == 0x3008 && (op1 & 0xF00F) == 0x3006 && op2 == 0x8DFC && (op3 & 0xF00F) == 0x6002 &&
+            t.block->length >= 8) {
+            t.n0 = (op0 >> 8) & 15;
+            t.m0 = (op0 >> 4) & 15;
+            t.n1 = (op1 >> 8) & 15;
+            t.m1 = (op1 >> 4) & 15;
+            t.m3 = (op3 >> 4) & 15;
+            const uint8 n3 = (op3 >> 8) & 15;
+            if (n3 == t.n0 && t.m3 != t.n0) {
+                t.wait = 1;
+                t.waitCost = s_cycles[op0] + s_cycles[op1] + s_cycles[op2] + s_cycles[op3];
+            }
+        }
+        if (!t.wait || !t.waitCost) {
+            t.wait = 0;
+            return;
+        }
+    }
+    if (!pollSkip || cycles >= blockStop || interruptReady) {
+        return;
+    }
+    const uint32 address = R[t.m3];
+    if (!IsRam(address) || (address & 3) != 0) {
+        return;
+    }
+    uint32 value;
+    std::memcpy(&value, ram + (address & (kRamSize - 4)), 4);
+    value = __builtin_bswap32(value);
+    if (R[t.n0] != value) {
+        return; // (not yet as a turn leaves it)
+    }
+    const uint32 r0 = value - R[t.m0];
+    const uint32 rn = t.n1 == t.n0 ? r0 : R[t.n1], rm = t.m1 == t.n0 ? r0 : R[t.m1];
+    if (!(rn > rm)) {
+        return; // (the loop ends at its first turn: the block runs it)
+    }
+    // (the turns the block would run: each begun under the stop; all but the last)
+    const uint64 turns = (blockStop - cycles + t.waitCost - 1) / t.waitCost;
+    if (turns < 2) {
+        return;
+    }
+    cycles += (turns - 1) * t.waitCost;
+    T = 1;
+    waitSkips++;
+    waitTurnsSkipped += turns - 1;
+}
+
 void SH3::RunBlocks(uint64 stop) {
     blockStop = stop;
     if (mode == Mode::Native) {
@@ -221,6 +280,9 @@ void SH3::RunBlocks(uint64 stop) {
                 continue;
             }
             if (Translation *t = Lookup(PC)) [[likely]] {
+                if (!timing && t->wait != 0) [[unlikely]] {
+                    WaitAhead(*t);
+                }
                 t->block->run(*this);
                 nativeBlocks++;
             } else {
