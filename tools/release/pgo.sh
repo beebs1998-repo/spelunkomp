@@ -35,7 +35,7 @@ for game in $GAMES; do
     title=$(sed -n 's/^title_frame = //p' "$ROOT/games/$game/game.cfg" | head -1)
     frames=$(( ${title:-3000} + FRAMES ))
     program="$BUILD/game-$game/$game"
-    features=$("$program" --list-features 2>/dev/null || true)
+    features=$(LLVM_PROFILE_FILE=/dev/null "$program" --list-features 2>/dev/null || true)
     play() { # name, then the program's arguments
         name=$1; shift
         mkdir -p "$home/$game-$name"
