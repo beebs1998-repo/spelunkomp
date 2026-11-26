@@ -24,8 +24,25 @@ case "$(uname -m)" in
 esac
 BUILD="$ROOT/build/release-$SYSTEM"
 sdl_static "$SYSTEM"
-build_programs "$BUILD" -DSDL3_DIR="$DEPS/sdl-$SYSTEM/lib/cmake/SDL3" \
-    -DCMAKE_EXE_LINKER_FLAGS="-static-libstdc++ -static-libgcc"
+# Profile-guided optimisation (GCC's), in two builds of the same folder: PGO_GENERATE=1 builds the programs
+# instrumented, each run writing its counts as /tmp/spelunkomp-pgo/<object>.gcda (the object's path from the
+# repository's top, its / as #: -fprofile-prefix-path), which GCOV_PREFIX and GCOV_PREFIX_STRIP=2 move where a run
+# can write (tools/release/run-pgo-linux.sh, on the device); PGO_USE=folder builds them with the counts brought back
+# there (a function the counts do not know, or know from other source, is built as without them, and said:
+# -Wmissing-profile, -Wcoverage-mismatch as a warning)
+PGO_FLAGS=""
+if [ "${PGO_GENERATE:-}" = 1 ]; then
+    PGO_FLAGS="-fprofile-generate=/tmp/spelunkomp-pgo -fprofile-update=atomic -fprofile-prefix-path=$ROOT"
+    echo "PGO: building the programs instrumented"
+elif [ -n "${PGO_USE:-}" ]; then
+    [ -d "$PGO_USE" ] || { echo "error: no folder $PGO_USE of the programs' counts (.gcda)" >&2; exit 1; }
+    PGO_FLAGS="-fprofile-use=$PGO_USE -fprofile-partial-training -fprofile-prefix-path=$ROOT -Wmissing-profile -Wno-error=coverage-mismatch"
+    NO_CCACHE=1 # (a cached object would not know the counts had changed)
+    echo "PGO: building with the counts in $PGO_USE ($(find "$PGO_USE" -name '*.gcda' | wc -l | tr -d ' ') files)"
+fi
+# (the flags given every time, empty without PGO: a build folder's cache would keep the last ones)
+build_programs "$BUILD" -DSDL3_DIR="$DEPS/sdl-$SYSTEM/lib/cmake/SDL3" -DCMAKE_C_FLAGS="$PGO_FLAGS" \
+    -DCMAKE_CXX_FLAGS="$PGO_FLAGS" -DCMAKE_EXE_LINKER_FLAGS="-static-libstdc++ -static-libgcc $PGO_FLAGS"
 
 STAGE="$BUILD/stage/$ARCHIVE"
 rm -rf "$BUILD/stage" && mkdir -p "$STAGE"
@@ -41,6 +58,19 @@ for program in "$STAGE/$EXE-launcher" $(for game in $GAMES; do echo "$STAGE/$gam
 done
 add_notices "$STAGE" "$BUILD/launcher"
 add_librashader "$STAGE" librashader.so "$STAGE" "$STAGE/licenses"
+if [ "${PGO_GENERATE:-}" = 1 ]; then
+    # (the instrumented programs are for training only, never a release: with the script that plays them on the
+    # device and each game's ROM set and title frame, into their own archive; no manifest)
+    cp "$ROOT/tools/release/run-pgo-linux.sh" "$STAGE/"
+    for game in $GAMES; do
+        printf '%s %s %s\n' "$game" "$(sed -n 's/^rom_set = //p' "$ROOT/games/$game/game.cfg" | head -1)" \
+            "$(sed -n 's/^title_frame = //p' "$ROOT/games/$game/game.cfg" | head -1)"
+    done > "$STAGE/pgo-games.txt"
+    rm -f "$OUT/$ARCHIVE-$SYSTEM-pgo-train.tar.gz"
+    tar -czf "$OUT/$ARCHIVE-$SYSTEM-pgo-train.tar.gz" -C "$BUILD/stage" "$ARCHIVE"
+    echo "wrote $OUT/$ARCHIVE-$SYSTEM-pgo-train.tar.gz (instrumented: for tools/release/run-pgo-linux.sh, not a release)"
+    exit 0
+fi
 rm -f "$OUT/$ARCHIVE-$SYSTEM.tar.gz"
 tar -czf "$OUT/$ARCHIVE-$SYSTEM.tar.gz" -C "$BUILD/stage" "$ARCHIVE"
 check_archive "$OUT/$ARCHIVE-$SYSTEM.tar.gz"

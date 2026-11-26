@@ -15,7 +15,27 @@ BUILD="$ROOT/build/release-macos"
 ARCH="-DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 -DCMAKE_OSX_ARCHITECTURES=${MAC_ARCHS:-arm64;x86_64}"
 sdl_static "macos-$(echo "${MAC_ARCHS:-arm64;x86_64}" | tr ';' '-')" $ARCH
 # (SDL3_DIR: never Homebrew's SDL, which is one processor's and a library the app would need beside it)
-build_programs "$BUILD" $ARCH -DSDL3_DIR="$DEPS/sdl-macos-$(echo "${MAC_ARCHS:-arm64;x86_64}" | tr ';' '-')/lib/cmake/SDL3"
+SDL3="$DEPS/sdl-macos-$(echo "${MAC_ARCHS:-arm64;x86_64}" | tr ';' '-')/lib/cmake/SDL3"
+# (PGO=1: the programs built with the profile tools/release/pgo.sh made, build/pgo/spelunkomp.profdata; PGO_PROFILE=
+# a file: that one. A function the profile does not know, or knows from older source, is built as without it)
+USE=""
+if [ -n "${PGO_PROFILE:-}" ] || [ "${PGO:-}" = 1 ]; then
+    profile="${PGO_PROFILE:-$ROOT/build/pgo/spelunkomp.profdata}"
+    [ -f "$profile" ] || { echo "error: no profile $profile (tools/release/pgo.sh makes it)" >&2; exit 1; }
+    echo "PGO: built with $profile"
+    if [ -f "$profile.txt" ]; then
+        sed 's/^/PGO:   /' "$profile.txt"
+        made=$(sed -n 's/^commit \([0-9a-f]*\).*/\1/p' "$profile.txt")
+        [ "$made" = "$(git -C "$ROOT" rev-parse HEAD)" ] ||
+            echo "warning: the profile was made from $made, not this source ($(git -C "$ROOT" rev-parse --short HEAD)): the functions changed since are built as without it (clang says which files, profile-instr-out-of-date)" >&2
+    fi
+    # (a function the profile does not know is built as without it, silently: every game's own code but those played.
+    # One it knows from other source is too, and clang warns: -Wprofile-instr-out-of-date, left on)
+    USE="-fprofile-instr-use=$profile -Wno-profile-instr-unprofiled"
+    NO_CCACHE=1 # (a cached object would not know the profile had changed)
+fi
+# (the flags given every time, empty without a profile: a build folder's cache would keep the last ones)
+build_programs "$BUILD" $ARCH -DSDL3_DIR="$SDL3" -DCMAKE_C_FLAGS="$USE" -DCMAKE_CXX_FLAGS="$USE"
 
 APP="$OUT/$NAME.app"
 rm -rf "$APP" && mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Frameworks"
