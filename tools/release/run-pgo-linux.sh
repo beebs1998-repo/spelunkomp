@@ -12,13 +12,13 @@
 # Every program's counts (.gcda) are written under OUT/gcda, and at the end put in OUT/gcda.tar.gz, for
 # PGO_USE=<that folder, unpacked> tools/release/linux.sh. Nothing is written anywhere but OUT: its own HOME, saves and
 # settings; the ROM folder is only read.
-#   run-pgo-linux.sh ROMS [GAME...]   (OUT=/home/deck/spelunk-test-18/pgo; PGO_FRAMES=3600, each run's frames after
+#   run-pgo-linux.sh ROMS [GAME...]   (OUT=$HOME/spelunkomp-pgo; PGO_FRAMES=3600, each run's frames after
 #                                      the game's title; every game in pgo-games.txt by default)
 set -u
 HERE=$(cd "$(dirname "$0")" && pwd)
 ROMS=${1:?usage: run-pgo-linux.sh ROMS [GAME...]}
 shift
-OUT=${OUT:-/home/deck/spelunk-test-18/pgo}
+OUT=${OUT:-$HOME/spelunkomp-pgo}
 FRAMES=${PGO_FRAMES:-3600}
 WANT=" $* "
 [ -f "$HERE/pgo-games.txt" ] || { echo "no $HERE/pgo-games.txt: run this from the unpacked training build" >&2; exit 1; }
