@@ -65,9 +65,16 @@ with (the script stops if there is none), the downloads, how to install on each 
 
    ```sh
    git status --short            # must print nothing: build exactly what was tagged
-   tools/release/all.sh          # macOS, Linux x86_64 and ARM64, Windows, Android, then SHA256SUMS.txt and the
+   PGO=1 tools/release/all.sh    # macOS, Linux x86_64 and ARM64, Windows, Android, then SHA256SUMS.txt and the
                                  # update-<system>.txt manifests, in build/release/
    ```
+
+   `PGO=1` builds the macOS programs with profile-guided optimisation: `tools/release/pgo.sh` first builds every
+   game's program instrumented and plays each (stage 1 with either renderer and with run-ahead, and stage 1's boss
+   with the slowdown on and off: about three minutes a game, an hour and a half for them all on an M4), then
+   `macos.sh` builds with the profile (`build/pgo/spelunkomp.profdata`, and what it was made from beside it). The
+   games play exactly as without it (the same hash logs and pictures); only the code is laid out for where the time
+   goes. The other systems are built as before; without `PGO=1` macOS is too.
 
 4. **Try each download** before anyone else does: unpack it somewhere else, start the launcher, choose the ROM
    folder, play a game of each board with a gamepad and with the keyboard (the picture, the sound, a save state, the

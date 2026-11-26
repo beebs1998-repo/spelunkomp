@@ -11,6 +11,8 @@
 #
 #   TARGETS="macos windows" tools/release/all.sh   # some of the targets (SHA256SUMS.txt is left alone)
 #   TARGETS="sums" tools/release/all.sh            # SHA256SUMS.txt alone, once every archive is in build/release/
+#   PGO=1 tools/release/all.sh                     # the macOS programs built with profile-guided optimisation:
+#                                                  #   tools/release/pgo.sh first (the others are built as before)
 #   (the Android app is signed with the release key in ~/.config/spelunkomp/android-signing.env, outside the
 #    repository; tools/release/android.sh, RELEASE=1, refuses without it: leave android out of TARGETS then)
 # Translated code that is a link to another folder (work/<id>/gen -> elsewhere) is followed in the containers too:
@@ -97,6 +99,9 @@ for target in macos linux-x86_64 linux-arm64 windows; do
     ! has_target "$target" || rm -f "build/release/update-$system.txt"
 done
 if has_target macos; then
+    # (PGO=1: the macOS programs built with a profile made here first, tools/release/pgo.sh: every game played, about
+    # three minutes a game more)
+    [ "${PGO:-}" != 1 ] || step "macos profile (PGO)" tools/release/pgo.sh
     step "macos" tools/release/macos.sh
 fi
 if has_target linux-x86_64; then

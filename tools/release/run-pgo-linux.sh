@@ -1,0 +1,68 @@
+#!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-only
+# Copyright (C) 2026 Tommy McLeroy. Part of spelunkomp.
+#
+# The Linux release's profile-guided optimisation, its training (tools/release/linux.sh, PGO_GENERATE=1, builds the
+# programs instrumented, into Spelunkomp-linux-<processor>-pgo-train.tar.gz with this script): run on the machine the
+# release is for (a Steam Deck or Steam Machine for x86_64), from the unpacked Spelunkomp folder, it plays each game
+# the ways a player's time goes, as fast as it goes, with no sound:
+#   - begun at stage 1 and played there, the slowdown on, with the GPU renderer and with the software one;
+#   - the same with run-ahead (1 frame);
+#   - taken straight to stage 1's boss and played there (where the game has that), the slowdown on and off.
+# Every program's counts (.gcda) are written under OUT/gcda, and at the end put in OUT/gcda.tar.gz, for
+# PGO_USE=<that folder, unpacked> tools/release/linux.sh. Nothing is written anywhere but OUT: its own HOME, saves and
+# settings; the ROM folder is only read.
+#   run-pgo-linux.sh ROMS [GAME...]   (OUT=/home/deck/spelunk-test-18/pgo; PGO_FRAMES=3600, each run's frames after
+#                                      the game's title; every game in pgo-games.txt by default)
+set -u
+HERE=$(cd "$(dirname "$0")" && pwd)
+ROMS=${1:?usage: run-pgo-linux.sh ROMS [GAME...]}
+shift
+OUT=${OUT:-/home/deck/spelunk-test-18/pgo}
+FRAMES=${PGO_FRAMES:-3600}
+WANT=" $* "
+[ -f "$HERE/pgo-games.txt" ] || { echo "no $HERE/pgo-games.txt: run this from the unpacked training build" >&2; exit 1; }
+rm -rf "$OUT/gcda" "$OUT/home" "$OUT/saves" "$OUT/logs" "$OUT/gcda.tar.gz"
+mkdir -p "$OUT/gcda" "$OUT/home" "$OUT/saves" "$OUT/logs"
+# (the game session's display, sound and bus, as Steam has them: the GPU renderer needs the display)
+if pid=$(pgrep -x steam | head -1) && [ -n "$pid" ]; then
+    for v in DISPLAY WAYLAND_DISPLAY XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS XDG_SESSION_TYPE PULSE_SERVER; do
+        val=$(tr '\0' '\n' < /proc/$pid/environ | grep "^$v=" | cut -d= -f2-)
+        [ -n "$val" ] && export "$v=$val"
+    done
+fi
+unset SteamGameId SteamAppId
+# (the counts' names are /tmp/spelunkomp-pgo/<object>.gcda: the first two parts of that left out, and OUT/gcda put first)
+export GCOV_PREFIX="$OUT/gcda" GCOV_PREFIX_STRIP=2
+start=$(date +%s)
+played=0
+while read -r game set title; do
+    [ "$WANT" = "  " ] || [[ "$WANT" == *" $game "* ]] || continue
+    if [ ! -e "$ROMS/$set.zip" ]; then
+        echo "$game: no $set.zip in $ROMS, not played"
+        continue
+    fi
+    t0=$(date +%s)
+    features=$("$HERE/$game" --list-features 2>/dev/null)
+    frames=$(( ${title:-3000} + FRAMES ))
+    bad=""
+    play() { # name, then the program's arguments
+        name=$1
+        shift
+        mkdir -p "$OUT/saves/$game-$name"
+        (cd "$HERE" && HOME="$OUT/home" "./$game" --roms "$ROMS" --saves "$OUT/saves/$game-$name" \
+            --settings "$OUT/saves/$game-$name/settings.ini" --mute --frames "$frames" --begin-now 5 --press 0:1000000:0x10 \
+            "$@" > "$OUT/logs/$game-$name.log" 2>&1) || bad="$bad $name"
+    }
+    play gpu --features out_of_harm=1
+    play software --software --features out_of_harm=1
+    play ahead --features out_of_harm=1,run_ahead=1
+    if printf '%s\n' "$features" | grep -q '^to_boss'; then
+        play boss --features to_boss=1,out_of_harm=1
+        printf '%s\n' "$features" | grep -q '^slowdown' && play boss-fast --features to_boss=1,out_of_harm=1,slowdown=1
+    fi
+    played=$((played + 1))
+    echo "$game: played in $(( $(date +%s) - t0 )) s${bad:+ (ended badly:$bad: $OUT/logs)}"
+done < "$HERE/pgo-games.txt"
+tar -czf "$OUT/gcda.tar.gz" -C "$OUT/gcda" .
+echo "$played games in $(( $(date +%s) - start )) s; $(find "$OUT/gcda" -name '*.gcda' | wc -l) count files in $OUT/gcda.tar.gz"
