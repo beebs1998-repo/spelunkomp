@@ -62,7 +62,9 @@ namespace {
              "Takes out lag the game itself has. These games show the result of a press some frames after it; with run-ahead "
              "the port runs the game that many frames further each frame, unseen, and shows that picture, so the screen answers "
              "sooner. The game plays exactly the same (the same frames, scores and slowdown); only the picture is ahead. "
-             "Too many frames shows a jump when you press; the right number is the game's own lag. Costs processor time.",
+             "Too many frames shows a jump when you press; the right number is the game's own lag. Costs processor time, on "
+             "the CV1000 with Slowdown as the board a lot: on a Steam Deck keep it Off; a Steam Machine takes 1 frame (some frames "
+             "late in Deathsmiles and SDOJ, many in Akai Katana). Cave's 68000 board and the PGM take any.",
              0, {"Off", "1 frame", "2 frames", "3 frames", "4 frames"}},
             {"input_lag", "Display", "Input lag readout",
              "At the bottom of the picture: how many frames the game itself takes to show a press (found in play, by running "
