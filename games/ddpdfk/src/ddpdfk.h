@@ -65,4 +65,9 @@ constexpr uint8_t kNotShot = 0x80, kNotShotByKind4 = 0x02;
 // followed here)
 constexpr uint32_t kSafeReach = 24, kShipSizes = 0x0C478364u, kShipType = 0xC8, kSizesAt = 12, kSizesMode = 0, kSizesModeAt = 0;
 
+// --- What the board's code unlocks (found 2026-11-25 by entering it, 2P holding A, B and D after a coin, 1P: B, C,
+// B, A, D, down, up, A, A, D, D, C, C, B, B, left, left, A, right, left x3, and comparing RAM with a run without; the
+// byte set alone puts Strong on the style select) ---
+constexpr uint32_t kStrongUnlocked = 0x0C5C1E1Du; // (1 when unlocked)
+
 } // namespace spelunk::ddpdfk

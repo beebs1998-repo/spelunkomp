@@ -139,6 +139,8 @@ const Game &ThisGame() {
         f.shipState = ddpdfk10::kShipState;
         f.hitBoxes = BoxesNow;
         f.hitKinds |= 1u << HitBox::Ground | 1u << HitBox::Shot;
+        f.unlocks = {{ddpdfk10::kTypeBUnlocked}, {ddpdfk10::kStrongUnlocked}};
+        f.unlockWords = "The Type-B ship and Strong Style";
         return shmup::MakeGame(ddpdfk10::kCredits, f);
     }();
     return game;

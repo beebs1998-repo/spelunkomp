@@ -75,4 +75,11 @@ constexpr int kShotsPassKinds[] = {1, 21};
 constexpr uint32_t kShipBoxes = 0x0C27AAB0u;
 constexpr int kOutOfHarmReach = 24;
 
+// --- What the board's codes unlock (found 2026-11-25 by entering each, 2P holding A, B and C after a coin, and
+// comparing RAM with a run without; each byte set alone puts its part on the choices) ---
+// Follett (1P: up x4, B, B, A, A, left, left, right, right, C x3, down, C), Rosa (C, B, A, C, B, up, A, right, C, left,
+// B, down, C, B, A, A, A) and the canyon's extra stage (C x3, A, up, left, right, down, B, C x3, down, down, A, B, C, B,
+// A): a byte each, 1 when unlocked. Kept in RAM only: a code is for the board's power on, never written to the EEPROM
+constexpr uint32_t kFollettUnlocked = 0x0C38861Cu, kRosaUnlocked = 0x0C38861Du, kCanyonUnlocked = 0x0C38861Eu;
+
 } // namespace spelunk::deathsml

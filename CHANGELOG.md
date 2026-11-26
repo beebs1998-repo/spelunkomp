@@ -5,6 +5,11 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **Unlock hidden content**, a switch on the Game page: what the arcade boards' secret codes unlock can be chosen
+  without entering them. Deathsmiles' Follett, Rosa and the canyon's extra stage; DoDonPachi Dai-Fukkatsu Ver 1.5's
+  Strong Style, and Ver 1.0's Type-B ship and Strong Style; Mushihimesama Futari Ver 1.0's Ultra mode. Off as the
+  board, where the codes still work (the other versions have all of it from the start); Futari 1.0, as after its code,
+  keeps Ultra unlocked in its EEPROM once a game is played with it. Online, the host's.
 - **Run-ahead costs about one frame a frame** (run-ahead 1 and 2, offline). Its frames ahead were all run again at
   every frame; now they are run as the game's own and kept, and taken as the game's next frames while the controls
   stay as they were, so a frame shown costs one frame (and a kept moment) instead of two or three. On a Steam Deck in

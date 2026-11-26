@@ -156,6 +156,8 @@ const Game &ThisGame() {
         f.safeFramesHeld = 0xFE;
         f.hitBoxes = BoxesNow;
         f.hitKinds |= 1u << HitBox::Ground | 1u << HitBox::Shot;
+        f.unlocks = {{futari10::kUltraUnlocked}};
+        f.unlockWords = "Ultra mode";
         return shmup::MakeGame(futari10::kCredits, f);
     }();
     return game;
