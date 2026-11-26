@@ -133,7 +133,7 @@ const Game &ThisGame() {
         f.hitBoxes = HitBoxes;
         f.hitKinds |= 1u << HitBox::Ground | 1u << HitBox::Shot;
         f.unlocks = {{deathsml::kFollettUnlocked}, {deathsml::kRosaUnlocked}, {deathsml::kCanyonUnlocked}};
-        f.unlockWords = "Follett, Rosa and the canyon's extra stage";
+        f.unlockWords = "follett, Rosa and the canyon's extra stage";
         return shmup::MakeGame(deathsml::kCredits, f);
     }();
     return game;

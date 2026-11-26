@@ -444,8 +444,8 @@ Game MakeGame(uint32_t creditsAddress, const Facts &facts) {
     first = 1;
     if (!kept.unlocks.empty()) {
         g.features.push_back({"unlock_hidden", "Game", "Unlock hidden content",
-                              kept.unlockWords + " can be chosen without the board's code. Off: as the board, where the code "
-                              "unlocks them.",
+                              "Unlocked without the board's secret code: " + kept.unlockWords + ". Off: as the board, where the "
+                              "code unlocks it.",
                               0, {}});
         first = 2;
     }
