@@ -381,12 +381,20 @@ namespace {
     bool IsTcnt(uint32 a) {
         return a == 0xFFFFFE98u || a == 0xFFFFFEA4u || a == 0xFFFFFEB0u;
     }
-    // (what the loop may read: a timer's count, worked out for each turn's read, or a word of main RAM, which nothing
-    // writes while the loop turns: the CPU writes nothing in it, an interrupt or the board's event ends it first)
-    bool PollReadable(uint32 a) {
-        return IsTcnt(a) || (SH3::IsRam(a) && (a & 3) == 0);
-    }
 } // namespace
+
+// (what the loop may read: a timer's count, worked out for each turn's read; a word of main RAM, which nothing writes
+// while the loop turns: the CPU writes nothing in it, an interrupt or the board's event ends it first; or, in the
+// blitter's shape, a word of the board's that reads the same until its event (Bus::ReadSteady))
+bool SH3::PollReadable(uint32 a) {
+    if ((a & 3) != 0) {
+        return false;
+    }
+    if (IsTcnt(a) || IsRam(a)) {
+        return true;
+    }
+    return poll.status && a < 0xE0000000u && (a & 0x1C000000u) != 0x04000000u && bus->ReadSteady(a & 0x1FFFFFFFu, cycles);
+}
 
 void SH3::PollTurn(uint32 target) {
     if (mode != Mode::Native || !pollSkip || pollInside || !timing) {
@@ -397,20 +405,36 @@ void SH3::PollTurn(uint32 target) {
         // (a branch back two instructions: is this the loop?)
         PollForget();
         const uint16 op0 = TimingCode(target), op1 = TimingCode(target + 2), op2 = TimingCode(target + 4), op3 = TimingCode(target + 6);
-        if ((op0 & 0xF00F) != 0x3008 || (op1 & 0xF00F) != 0x3006 || op2 != 0x8DFC || (op3 & 0xF00F) != 0x6002) {
+        if (op2 != 0x8DFC) {
             return;
         }
-        poll.n0 = (op0 >> 8) & 15;
-        poll.m0 = (op0 >> 4) & 15;
-        poll.n1 = (op1 >> 8) & 15;
-        poll.m1 = (op1 >> 4) & 15;
-        poll.n3 = (op3 >> 8) & 15;
-        poll.m3 = (op3 >> 4) & 15;
-        if (poll.m3 == poll.n0 || poll.m3 == poll.n3 || poll.n3 != poll.n0 || !PollReadable(R[poll.m3])) {
+        if ((op0 & 0xF00F) == 0x3008 && (op1 & 0xF00F) == 0x3006 && (op3 & 0xF00F) == 0x6002) {
+            // (the frame's wait: sub Rm0,Rn0; cmp/hi Rm1,Rn1; bt/s; mov.l @Rm3,Rn3, which reads in the delay slot)
+            poll.status = false;
+            poll.n0 = (op0 >> 8) & 15;
+            poll.m0 = (op0 >> 4) & 15;
+            poll.n1 = (op1 >> 8) & 15;
+            poll.m1 = (op1 >> 4) & 15;
+            poll.n3 = (op3 >> 8) & 15;
+            poll.m3 = (op3 >> 4) & 15;
+            if (poll.m3 == poll.n0 || poll.m3 == poll.n3 || poll.n3 != poll.n0 || !PollReadable(R[poll.m3])) {
+                return;
+            }
+            poll.reader = target + 6;
+        } else if ((op0 & 0xFF0F) == 0x6002 && (op1 & 0xFF00) == 0xC800 && op3 == 0x0009) {
+            // (the blitter's wait: mov.l @Rm3,R0; tst #mask,R0; bt/s; nop: it reads first)
+            poll.status = true;
+            poll.n3 = 0;
+            poll.m3 = (op0 >> 4) & 15;
+            poll.mask = op1 & 0xFF;
+            if (poll.m3 == 0 || !PollReadable(R[poll.m3])) {
+                return;
+            }
+            poll.reader = target;
+        } else {
             return;
         }
         poll.head = target;
-        poll.slot = target + 6;
         poll.end = now;
         poll.before = memoryTiming;
         poll.turns = 0;
@@ -459,59 +483,179 @@ void SH3::PollTurn(uint32 target) {
     std::memcpy(keepTmu, tmu, sizeof tmu);
     const Sh3Timing keepModel = memoryTiming;
 #endif
-    uint64 turns = 0, lastRead = 0;
-    while (cycles < blockStop && !interruptReady) {
-        const uint32 r0 = R[poll.n0] - R[poll.m0];
-        const uint32 rn = poll.n1 == poll.n0 ? r0 : R[poll.n1], rm = poll.m1 == poll.n0 ? r0 : R[poll.m1];
-        if (!(rn > rm)) {
-            break; // (the loop ends this turn: the block runs it)
+    uint64 lastRead = 0;
+    // (the turns one at a time, each as the last: for a timer's count, which reads otherwise each turn; and where the
+    // turns are all alike, the way the closed form below must agree with)
+    auto turnByTurn = [&]() -> uint64 {
+        uint64 turns = 0;
+        while (cycles < blockStop && !interruptReady) {
+            uint32 r0 = 0;
+            if (!poll.status) {
+                r0 = R[poll.n0] - R[poll.m0];
+                const uint32 rn = poll.n1 == poll.n0 ? r0 : R[poll.n1], rm = poll.m1 == poll.n0 ? r0 : R[poll.m1];
+                if (!(rn > rm)) {
+                    break; // (the loop ends this turn: the block runs it)
+                }
+            }
+            // (the word as it reads then: main RAM's; TCNT with the timers brought up to that cycle on a copy, as ReadSlow
+            // would; or the board's word, the same as the last turn read while it is steady)
+            const uint64 readCycle = cycles + poll.readAt;
+            const uint32 address = R[poll.m3];
+            uint32 value;
+            if (IsRam(address)) {
+                std::memcpy(&value, ram + (address & (kRamSize - 4)), 4);
+                value = __builtin_bswap32(value);
+            } else if (IsTcnt(address)) {
+                Timer was[3];
+                std::memcpy(was, tmu, sizeof tmu);
+                const uint64 nowWas = cycles;
+                cycles = readCycle;
+                value = ReadSlow(address & ~3u, 4);
+                std::memcpy(tmu, was, sizeof tmu);
+                cycles = nowWas;
+            } else if (bus->ReadSteady(address & 0x1FFFFFFFu, readCycle)) {
+                value = R[poll.n3];
+            } else {
+                break; // (it may read otherwise now: the block runs the turn)
+            }
+            if (poll.status) {
+                if ((value & poll.mask) != 0) {
+                    break; // (the loop ends this turn: the block runs it)
+                }
+                R[0] = value;
+            } else {
+                R[poll.n0] = r0;
+                R[poll.n3] = value;
+            }
+            T = 1;
+            cycles += poll.cost;
+            for (int i = 0; i < kPollTimes; i++) {
+                if (poll.moved & (1u << i)) {
+                    PollTime(memoryTiming, i) += poll.cost;
+                }
+            }
+            if (poll.moved & (1u << kPollTimes)) {
+                memoryTiming.portBase += poll.cost;
+            }
+            lastRead = readCycle;
+            turns++;
         }
-        // (the word as it reads then: main RAM's, or TCNT with the timers brought up to that cycle on a copy, as
-        // ReadSlow would)
-        const uint64 readCycle = cycles + poll.readAt;
+        return turns;
+    };
+    // (all the turns at once, where every one is alike: a word of main RAM, which reads the same every turn, or the
+    // blitter's status while it reads as the last read did (Bus::ReadSteady: true up to a cycle, and at every earlier
+    // one). The registers as the last turn left them, which the turns seen already did; the cycles and the moving
+    // times by the turns' cycles. 0: not all alike, the turn by turn way instead)
+    auto allAtOnce = [&]() -> uint64 {
+        if (cycles >= blockStop || interruptReady) {
+            return 0;
+        }
         const uint32 address = R[poll.m3];
+        uint64 n = (blockStop - cycles + poll.cost - 1) / poll.cost; // (turns begun under the stop)
         uint32 value;
         if (IsRam(address)) {
             std::memcpy(&value, ram + (address & (kRamSize - 4)), 4);
             value = __builtin_bswap32(value);
+            if (R[poll.n3] != value) {
+                return 0; // (the last turn read otherwise: not yet alike)
+            }
+        } else if (poll.status && !IsTcnt(address)) {
+            value = R[poll.n3];
+            const uint32 board = address & 0x1FFFFFFFu;
+            auto steady = [&](uint64 k) { return bus->ReadSteady(board, cycles + (k - 1) * poll.cost + poll.readAt); };
+            if (!steady(1)) {
+                return 0;
+            }
+            if (!steady(n)) {
+                // (the last of the n turns whose read is steady: between lo, steady, and hi, not)
+                uint64 lo = 1, hi = n;
+                while (hi - lo > 1) {
+                    const uint64 mid = lo + (hi - lo) / 2;
+                    (steady(mid) ? lo : hi) = mid;
+                }
+                n = lo;
+            }
         } else {
-            Timer was[3];
-            std::memcpy(was, tmu, sizeof tmu);
-            const uint64 nowWas = cycles;
-            cycles = readCycle;
-            value = ReadSlow(address & ~3u, 4);
-            std::memcpy(tmu, was, sizeof tmu);
-            cycles = nowWas;
+            return 0;
         }
-        R[poll.n0] = r0;
-        R[poll.n3] = value;
+        uint32 r0 = 0;
+        if (poll.status) {
+            if ((value & poll.mask) != 0) {
+                return 0;
+            }
+            R[0] = value;
+        } else {
+            r0 = R[poll.n0] - R[poll.m0];
+            const uint32 rn = poll.n1 == poll.n0 ? r0 : R[poll.n1], rm = poll.m1 == poll.n0 ? r0 : R[poll.m1];
+            if (!(rn > rm)) {
+                return 0;
+            }
+            R[poll.n0] = r0;
+            R[poll.n3] = value;
+        }
         T = 1;
-        cycles += poll.cost;
+        lastRead = cycles + (n - 1) * poll.cost + poll.readAt;
+        cycles += n * poll.cost;
         for (int i = 0; i < kPollTimes; i++) {
             if (poll.moved & (1u << i)) {
-                PollTime(memoryTiming, i) += poll.cost;
+                PollTime(memoryTiming, i) += n * poll.cost;
             }
         }
         if (poll.moved & (1u << kPollTimes)) {
-            memoryTiming.portBase += poll.cost;
+            memoryTiming.portBase += n * poll.cost;
         }
-        lastRead = readCycle;
-        turns++;
+        return n;
+    };
+    uint64 turns = allAtOnce();
+#ifdef SPELUNK_SHADOW_TIMING
+    if (turns) {
+        // (the shadow build: the same turns turn by turn as well, from where they began; the closed form must give
+        // the same turns, cycles, registers, T, timers and model. The run goes on from the turn by turn way's)
+        const std::array<uint32, 16> onceR = R;
+        const uint32 onceT = T;
+        const uint64 onceCycles = cycles, onceTurns = turns, onceRead = lastRead;
+        const Sh3Timing onceModel = memoryTiming;
+        Timer onceTmu[3];
+        std::memcpy(onceTmu, tmu, sizeof tmu);
+        R = keepR;
+        T = keepT;
+        cycles = keepCycles;
+        std::memcpy(tmu, keepTmu, sizeof tmu);
+        memoryTiming = keepModel;
+        turns = turnByTurn();
+        if (turns != onceTurns || R != onceR || T != onceT || cycles != onceCycles || lastRead != onceRead ||
+            std::memcmp(tmu, onceTmu, sizeof tmu) != 0 || std::memcmp(&memoryTiming, &onceModel, sizeof onceModel) != 0) {
+            fprintf(stderr, "shadow: MISMATCH at a poll loop's skip at %08X, cycle %llu: all at once %llu turns to cycle %llu, "
+                            "turn by turn %llu to cycle %llu\n",
+                    poll.head, static_cast<unsigned long long>(keepCycles), static_cast<unsigned long long>(onceTurns),
+                    static_cast<unsigned long long>(onceCycles), static_cast<unsigned long long>(turns),
+                    static_cast<unsigned long long>(cycles));
+            fflush(stderr);
+            std::_Exit(3);
+        }
+        shadowAtOnce++;
+    }
+#endif
+    if (!turns) {
+        turns = turnByTurn();
     }
     if (!turns) {
         return;
     }
     // (the timers as the last turn's read left them)
-    if (!IsRam(R[poll.m3])) {
+    if (IsTcnt(R[poll.m3])) {
         const uint64 endCycles = cycles;
         cycles = lastRead;
         SyncTimers();
         cycles = endCycles;
     }
-    at = poll.slot;
+    at = poll.reader;
     inSlot = false;
     pollSkips++;
     pollTurnsSkipped += turns;
+    if (poll.status) {
+        pollStatusTurns += turns;
+    }
     poll.end = cycles;
     poll.before = memoryTiming;
 #ifdef SPELUNK_SHADOW_TIMING

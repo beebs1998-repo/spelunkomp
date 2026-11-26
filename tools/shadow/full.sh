@@ -164,7 +164,7 @@ if [ "$TIER" = full ]; then
             echo "$set rollback 6000 FAIL the shadow game program did not say it compared (not built with SHADOW_TIMING?)" > "$OUT/results/$set-rollback.txt"
         else
             # (the game program's word at its end, as the headless runner's: port/main.cpp)
-            skips=$(sed -n 's/.*; \([0-9]*\) poll-loop skips (\([0-9]*\) turns).*/\1 poll-loop skips, \2 turns/p' "$log")
+            skips=$(sed -n 's/.*; \([0-9]*\) poll-loop skips (\([0-9]*\) turns)[^,]*, \([0-9]*\) of them worked out all at once.*/\1 poll-loop skips, \2 turns, \3 at once/p' "$log")
             echo "$set rollback 6000 pass ${skips:--}" > "$OUT/results/$set-rollback.txt"
         fi
     done

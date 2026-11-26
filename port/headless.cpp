@@ -501,13 +501,15 @@ int main(int argc, char **argv) {
                 static_cast<unsigned long long>(board->cpu.waitTurnsSkipped), static_cast<unsigned long long>(board->cpu.waitSkips));
     }
     if (board->cpu.pollSkips) {
-        fprintf(stderr, "poll loops: %llu turns worked out in %llu skips\n", static_cast<unsigned long long>(board->cpu.pollTurnsSkipped),
-                static_cast<unsigned long long>(board->cpu.pollSkips));
+        fprintf(stderr, "poll loops: %llu turns worked out in %llu skips (%llu of them the blitter's wait)\n",
+                static_cast<unsigned long long>(board->cpu.pollTurnsSkipped), static_cast<unsigned long long>(board->cpu.pollSkips),
+                static_cast<unsigned long long>(board->cpu.pollStatusTurns));
     }
 #ifdef SPELUNK_SHADOW_TIMING
-    fprintf(stderr, "shadow: %llu events compared with the reference model, all the same; %llu poll-loop skips (%llu turns) the same as the turns run\n",
+    fprintf(stderr, "shadow: %llu events compared with the reference model, all the same; %llu poll-loop skips (%llu turns) the same as the turns run, "
+            "%llu of them worked out all at once and the same turn by turn\n",
             static_cast<unsigned long long>(board->cpu.shadowEvents), static_cast<unsigned long long>(board->cpu.shadowSkips),
-            static_cast<unsigned long long>(board->cpu.shadowSkipTurns));
+            static_cast<unsigned long long>(board->cpu.shadowSkipTurns), static_cast<unsigned long long>(board->cpu.shadowAtOnce));
 #endif
     if (const char *path = getenv("SPELUNK_INTERPRETED")) {
         board->cpu.SaveInterpreted(path);

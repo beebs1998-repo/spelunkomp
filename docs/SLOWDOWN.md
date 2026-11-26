@@ -525,6 +525,28 @@ brought up once at the end as the last read left them. Only in native mode: the 
 tools/check.sh compares the translations with, runs every turn, so check.sh compares the skip with the turns run too.
 `SPELUNK_NO_POLL_SKIP=1` runs every turn.
 
+The blitter's wait is the second shape, the same way:
+
+    loop: mov.l @r1,r0     ; the blitter's status (B8000010)
+          tst   #0x10,r0
+          bt/s  loop
+          nop
+
+turning while the blitter's status reads busy (0). The status reads busy until the list's end (m_blitterDone) and
+changes only as it is read: the board says, for each turn's read, whether it would read as the last did and change
+nothing (Bus::ReadSteady), which it does while the read comes before the list's end. The turn whose read would come
+after it is run as the board runs it. With the slowdown on, the list's end is also the CPU's event (IRQ1), which stops
+the block anyway. It is the busiest loop of another shape left after the frame's wait: 1.4% to 6.7% of the timing
+events, most in Mushihimesama, Matsuri and the dfk/sdoj engine's games.
+
+Where every turn is alike, the turns are worked out all at once rather than one by one: a word of main RAM reads the
+same each turn, so once the last turn has read it, each turn after leaves the registers as they are and costs the same
+cycles. The number of turns is the number begun under the block's stop, and the cycles and the moving times go on by
+that many turns' cycles. The blitter's status is alike up to the last turn whose read comes before the list's end
+(found by halving, Bus::ReadSteady being true up to a cycle and at every one before it). A timer's count, which reads
+otherwise each turn, is still worked out turn by turn. On Muchi Muchi Pork!'s stage 1 boss that is about 100,000
+turns a frame once each: about 7% of the headless runner's time there.
+
 With the slowdown off the timing model is not there to call, and the translated wait turns in its own block until its
 stop: on the Steam Deck, with the slowdown off, Muchi Muchi Pork!'s frame spent 18% of its time there. The dispatcher
 works those turns out before it runs the block (SH3::WaitAhead, runtime/dispatch.cpp): without the timing model a turn
@@ -532,7 +554,9 @@ costs its four instructions' cycles and nothing else, and once the register the 
 (each turn leaves it so), every turn is alike. The turns before the block's last are counted into the cycles, and the
 block runs the last itself, so it leaves the registers, T and the cycles as the turns would.
 
-The shadow build (tools/shadow/) runs every skip both ways. It works the turns out, puts everything back, runs the
+The shadow build (tools/shadow/) runs every skip both ways. A skip worked out all at once is also worked out turn by
+turn, from where it began, and the two must give the same turns, cycles, registers, T, timers and model. Then it
+puts everything back, runs the
 same turns through the interpreter with both models at every event, and compares registers, cycles, T, the timers and
 the model's every field. The first difference stops the run; the run goes on from the turns run. Muchi Muchi Pork!'s
 boss state, 600 frames: 14,878 skips of 99 million turns, every one the same, and the per-frame hash log identical to
